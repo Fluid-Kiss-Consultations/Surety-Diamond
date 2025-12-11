@@ -1,0 +1,16 @@
+interface IComplianceDiamond {
+    function checkTransactionCompliance(
+        address from,
+        address to,
+        uint256 amount,
+        bytes32 transactionType
+    ) external returns (
+        bool canProceed,
+        string memory reason
+    );
+    
+    function isEntityCompliant(
+        address entity,
+        KYCLevel requiredLevel
+    ) external view returns (bool);
+}
