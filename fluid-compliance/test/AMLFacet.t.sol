@@ -43,16 +43,22 @@ contract AMLFacetTest is DiamondTestHelper {
     }
 
     function test_assessTransaction_unverifiedEntitiesBlock() public {
-        // Unverified from + to adds 600 total risk
-        vm.prank(analyst);
+        // Unverified from+to (600) + high risk scores (100+100) = 800 >= 750 HIGH threshold
+        vm.startPrank(analyst);
+        aml().setEntityRiskScore(seller, 1000, "pre-set");
+        aml().setEntityRiskScore(buyer,  1000, "pre-set");
         (, bool canProceed) = aml().assessTransaction(
             keccak256("tx-unverified"), seller, buyer, 1000 * 1e18, keccak256("USD"), keccak256("INVOICE")
         );
+        vm.stopPrank();
         assertFalse(canProceed);
     }
 
     function test_assessTransaction_sarFiledForHighRiskLargeAmount() public {
-        // Both unverified (600 pts) + large amount triggers SAR
+        // Unverified from+to (600) + high risk scores (200) = 800 >= 750, amount >= SAR threshold
+        vm.prank(analyst); aml().setEntityRiskScore(seller, 1000, "pre-set");
+        vm.prank(analyst); aml().setEntityRiskScore(buyer,  1000, "pre-set");
+
         vm.expectEmit(false, true, false, false, diamond);
         emit IAMLFacetTestHelper.SARFiled(bytes32(0), seller, 0, 0);
 

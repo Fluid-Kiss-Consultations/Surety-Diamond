@@ -99,10 +99,6 @@ abstract contract DiamondTestHelper is Test {
         OracleFacet           oracleFacet       = new OracleFacet();
         DiamondInit           diamondInit       = new DiamondInit();
 
-        // Deploy proxy
-        SuretyDiamond d = new SuretyDiamond(owner, 48 hours);
-        diamondAddr = address(d);
-
         // Build FacetCut array
         IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](11);
         cuts[0]  = _cut(address(cutFacet),          _cutSelectors());
@@ -127,8 +123,9 @@ abstract contract DiamondTestHelper is Test {
             }))
         );
 
-        vm.prank(owner);
-        IDiamondCut(diamondAddr).diamondCut(cuts, address(diamondInit), initData);
+        // Pass cuts directly to constructor — bootstraps the routing table without going through fallback
+        SuretyDiamond d = new SuretyDiamond(owner, 48 hours, cuts, address(diamondInit), initData);
+        diamondAddr = address(d);
     }
 
     // ============================================================

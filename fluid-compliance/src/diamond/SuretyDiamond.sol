@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {LibDiamond} from "../libraries/LibDiamond.sol";
-import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 import {LibRoles} from "../libraries/LibRoles.sol";
 import {IDiamondCut} from "../interfaces/IDiamondCut.sol";
 import {IERC165} from "../interfaces/IERC165.sol";
@@ -41,14 +40,20 @@ contract SuretyDiamond {
 
     // ============ Constructor ============
 
-    /// @notice Initialize the diamond with owner and timelock duration
+    /// @notice Initialize the diamond with owner, timelock, and initial facet cuts
     /// @param _owner Initial contract owner (receives DEFAULT_ADMIN_ROLE)
     /// @param _timelockDuration Upgrade timelock in seconds (minimum 48 hours)
-    constructor(address _owner, uint256 _timelockDuration) {
+    /// @param _initialCuts Facet cuts to register at deploy time (bootstraps the routing table)
+    /// @param _init Optional initializer contract address (address(0) to skip)
+    /// @param _initData Calldata for the initializer
+    constructor(
+        address _owner,
+        uint256 _timelockDuration,
+        IDiamondCut.FacetCut[] memory _initialCuts,
+        address _init,
+        bytes memory _initData
+    ) {
         if (_timelockDuration < 48 hours) revert TimelockTooShort();
-
-        LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
-        s.timelockDuration = _timelockDuration;
 
         // Grant initial admin role
         LibRoles.grantRole(LibRoles.DEFAULT_ADMIN_ROLE, _owner);
@@ -59,6 +64,9 @@ contract SuretyDiamond {
         // Register ERC165 support
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         ds.supportedInterfaces[type(IERC165).interfaceId] = true;
+
+        // Register all facets — called directly (not via fallback) to bootstrap the routing table
+        LibDiamond.diamondCut(_initialCuts, _init, _initData);
     }
 
     // ============ Upgrade Timelock Functions ============

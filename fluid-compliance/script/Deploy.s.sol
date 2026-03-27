@@ -105,7 +105,6 @@ contract DeploySurety is Script {
     // ============================================================
 
     function _deployDiamond(address owner) internal {
-        diamond     = new SuretyDiamond(owner, TIMELOCK_DURATION);
         diamondInit = new DiamondInit();
     }
 
@@ -138,7 +137,8 @@ contract DeploySurety is Script {
             }))
         );
 
-        IDiamondCut(address(diamond)).diamondCut(cuts, address(diamondInit), initData);
+        // Deploy diamond with all cuts in constructor — bootstraps routing table directly
+        diamond = new SuretyDiamond(owner, TIMELOCK_DURATION, cuts, address(diamondInit), initData);
     }
 
     // ============================================================
