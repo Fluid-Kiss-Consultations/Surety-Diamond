@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org)
 [![EIP-2535](https://img.shields.io/badge/EIP--2535-Diamond-purple.svg)](https://eips.ethereum.org/EIPS/eip-2535)
+[![CI](https://github.com/fluidkiss1337-creator/Surety-Diamond/actions/workflows/ci.yml/badge.svg)](https://github.com/fluidkiss1337-creator/Surety-Diamond/actions/workflows/ci.yml)
 
 **On-chain compliance infrastructure for enterprise supply chain finance.**
 
