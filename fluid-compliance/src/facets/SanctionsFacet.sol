@@ -130,6 +130,9 @@ contract SanctionsFacet is ISanctionsFacet {
         bytes32 identityHash,
         string calldata clearanceReason
     ) external whenNotPaused onlySanctionsManager {
+        LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
+        s.sanctionedEntities[identityHash] = false;
+        delete s.sanctionDetails[identityHash];
         emit EntityCleared(entity, block.timestamp, msg.sender);
     }
 
@@ -138,8 +141,11 @@ contract SanctionsFacet is ISanctionsFacet {
     /// @inheritdoc ISanctionsFacet
     function isSanctioned(address entity) external view returns (bool) {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
-        LibAppStorage.KYCRecord memory kyc = s.kycRecords[entity];
-        return s.sanctionedEntities[kyc.identityHash];
+        bytes32 identityHash = s.kycRecords[entity].identityHash;
+        // Entities with no KYC record have no identity hash to screen against.
+        // Access control elsewhere (KYC gates) must prevent unverified entities from transacting.
+        if (identityHash == bytes32(0)) return false;
+        return s.sanctionedEntities[identityHash];
     }
 
     /// @inheritdoc ISanctionsFacet
