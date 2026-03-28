@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {LibAppStorage} from "../libraries/LibAppStorage.sol";
+import {LibAppStorage, Reentrancy} from "../libraries/LibAppStorage.sol";
 import {LibRoles} from "../libraries/LibRoles.sol";
 
 /// @title EmergencyFacet
@@ -38,6 +38,14 @@ contract EmergencyFacet {
         _;
     }
 
+    modifier nonReentrant() {
+        LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
+        if (s._reentrancyStatus == 2) revert Reentrancy();
+        s._reentrancyStatus = 2;
+        _;
+        s._reentrancyStatus = 1;
+    }
+
     // ============ Core Functions ============
 
     /// @notice Pause all system operations
@@ -64,7 +72,7 @@ contract EmergencyFacet {
     function emergencyWithdraw(
         address token,
         uint256 amount
-    ) external onlyEmergencyAdmin {
+    ) external onlyEmergencyAdmin nonReentrant {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         address recipient = s.treasuryAddress;
         if (recipient == address(0)) revert InvalidRecipient();
