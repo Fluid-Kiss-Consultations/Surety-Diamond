@@ -30,16 +30,20 @@ contract DiamondInit {
         if (s.timelockDuration != 0) revert AlreadyInitialized();
         if (args.timelockDuration < 48 hours) revert TimelockTooShort();
 
-        // System configuration
+        // Bootstrap admin roles FIRST — timelockDuration is still 0 here, so
+        // the LibRoles admin-check bootstrap bypass is active (LOW-2 guard).
+        LibRoles.grantRole(LibRoles.DEFAULT_ADMIN_ROLE,      args.owner);
+        LibRoles.grantRole(LibRoles.EMERGENCY_ADMIN_ROLE,    args.owner);
+        LibRoles.grantRole(LibRoles.COMPLIANCE_OFFICER_ROLE, args.owner);
+
+        // System configuration — set AFTER role grants so the bootstrap bypass above works
         s.timelockDuration     = args.timelockDuration;
         s.treasuryAddress      = args.treasury;
         s.reportingThreshold   = args.reportingThreshold;
         s.lastSystemUpdate     = block.timestamp;
 
-        // Bootstrap admin roles
-        LibRoles.grantRole(LibRoles.DEFAULT_ADMIN_ROLE,      args.owner);
-        LibRoles.grantRole(LibRoles.EMERGENCY_ADMIN_ROLE,    args.owner);
-        LibRoles.grantRole(LibRoles.COMPLIANCE_OFFICER_ROLE, args.owner);
+        // Initialize reentrancy guard to NOT_ENTERED (1 = not entered, 2 = entered)
+        s._reentrancyStatus = 1;
 
         // ERC165 support
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
