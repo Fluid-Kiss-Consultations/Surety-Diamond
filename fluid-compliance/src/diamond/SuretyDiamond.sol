@@ -9,34 +9,16 @@ import {IERC165} from "../interfaces/IERC165.sol";
 /// @title SuretyDiamond
 /// @author Surety Compliance System
 /// @notice Main EIP-2535 diamond proxy contract for the Surety compliance engine
-/// @dev Implements the diamond fallback routing pattern with a 48-hour upgrade timelock
-///      for regulatory compliance auditability. All compliance logic lives in facets.
+/// @dev Implements the diamond fallback routing pattern. All compliance logic lives in facets.
+///      Post-initialization upgrades are gated behind a 48-hour timelock enforced by
+///      DiamondCutFacet.scheduleDiamondCut() / executeDiamondCut(). Scheduled upgrade state
+///      is stored in LibAppStorage to avoid slot-0 collisions with delegatecall facets.
 contract SuretyDiamond {
-
-    // ============ Events ============
-
-    event DiamondUpgradeScheduled(bytes32 indexed upgradeId, uint256 executeAfter);
-    event DiamondUpgradeExecuted(bytes32 indexed upgradeId);
-    event DiamondUpgradeCancelled(bytes32 indexed upgradeId);
 
     // ============ Errors ============
 
     error FunctionDoesNotExist();
-    error UpgradeNotReady();
-    error UpgradeAlreadyExecuted();
     error TimelockTooShort();
-
-    // ============ Structs ============
-
-    struct ScheduledUpgrade {
-        IDiamondCut.FacetCut[] facetCuts;
-        address init;
-        bytes initData;
-        uint256 executeAfter;
-        bool executed;
-    }
-
-    mapping(bytes32 => ScheduledUpgrade) public scheduledUpgrades;
 
     // ============ Constructor ============
 
@@ -68,11 +50,6 @@ contract SuretyDiamond {
         // Register all facets — called directly (not via fallback) to bootstrap the routing table
         LibDiamond.diamondCut(_initialCuts, _init, _initData);
     }
-
-    // ============ Upgrade Timelock Functions ============
-    // TODO: Implement scheduleUpgrade(), executeUpgrade(), cancelUpgrade()
-    // These should live in DiamondCutFacet and call LibDiamond.diamondCut()
-    // See docs/architecture.md for design rationale.
 
     // ============ Fallback - EIP-2535 Routing ============
 
