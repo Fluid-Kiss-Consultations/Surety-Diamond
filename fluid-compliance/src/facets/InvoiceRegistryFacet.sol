@@ -27,6 +27,9 @@ contract InvoiceRegistryFacet is IInvoiceRegistryFacet {
     error UnauthorizedSeller();
     error UnauthorizedBuyer();
     error InvalidSignature();
+    error InvalidSignatureLength();
+    error InvalidSignatureV();
+    error InvalidSignatureRecovery();
     error InvoiceNotVerified();
     error InvalidAdvanceRate();
     error PaymentExceedsInvoice();
@@ -159,7 +162,7 @@ contract InvoiceRegistryFacet is IInvoiceRegistryFacet {
         bytes32 invoiceHash,
         uint256 paymentAmount,
         bytes32 paymentReference
-    ) external whenNotPaused {
+    ) external whenNotPaused onlyFactor {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         LibAppStorage.InvoiceRecord storage invoice = s.invoices[invoiceHash];
         if (invoice.invoiceHash == bytes32(0)) revert InvoiceNotFound();
@@ -220,7 +223,7 @@ contract InvoiceRegistryFacet is IInvoiceRegistryFacet {
         bytes32 messageHash,
         bytes memory signature
     ) internal pure returns (address signer) {
-        require(signature.length == 65, "Invalid signature length");
+        if (signature.length != 65) revert InvalidSignatureLength();
         bytes32 r;
         bytes32 s;
         uint8 v;
@@ -230,8 +233,8 @@ contract InvoiceRegistryFacet is IInvoiceRegistryFacet {
             v := byte(0, mload(add(signature, 96)))
         }
         if (v < 27) v += 27;
-        require(v == 27 || v == 28, "Invalid signature v value");
+        if (v != 27 && v != 28) revert InvalidSignatureV();
         signer = ecrecover(messageHash, v, r, s);
-        require(signer != address(0), "Invalid signature");
+        if (signer == address(0)) revert InvalidSignatureRecovery();
     }
 }
