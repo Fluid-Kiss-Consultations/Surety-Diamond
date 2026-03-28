@@ -226,6 +226,9 @@ As of 2026-03-28:
 1. **`.env.example`** — create with required deployment variables
 2. **Fuzzing tests** — risk scoring and invoice validation edge cases
 3. **Deploy.s.sol selector verification** — verify selector arrays against `forge inspect` output before mainnet use
+4. **Stub function implementations** — `OracleFacet.getPendingRequests` (filter by dataType), `InvoiceRegistryFacet.getFactoringStatus` (return actual factor address), `AuditFacet.getAuditStats` (filter by eventType/period)
+5. **Unused parameter logic** — implement storage/logging for: `narrative` in `AMLFacet.fileSAR`, `paymentReference` in `InvoiceRegistryFacet.recordPayment`, `reason`/`clearanceReason` in `SanctionsFacet`
+6. **SanctionsFacet event enrichment** — resolve `address(0)` in `addToSanctionsList` and `removeFromSanctionsList` event emissions (add entity address parameter or hash-indexed event variant)
 
 ---
 
