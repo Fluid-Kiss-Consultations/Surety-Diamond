@@ -7,15 +7,10 @@ import {LibAppStorage, SystemPaused} from "../src/libraries/LibAppStorage.sol";
 
 contract EmergencyFacetTest is DiamondTestHelper {
 
-    // ============================================================
-    // emergencyPause
-    // ============================================================
-
     function test_emergencyPause_pausesSystem() public {
         vm.prank(pauser);
         EmergencyFacet(diamond).emergencyPause();
 
-        // Any whenNotPaused function should now revert
         vm.prank(seller);
         vm.expectRevert(SystemPaused.selector);
         kyc().initiateKYC(seller, keccak256("id"), LibAppStorage.KYCLevel.BASIC, keccak256("US"));
@@ -36,18 +31,13 @@ contract EmergencyFacetTest is DiamondTestHelper {
         EmergencyFacet(diamond).emergencyPause();
     }
 
-    // ============================================================
-    // emergencyUnpause
-    // ============================================================
-
     function test_emergencyUnpause_resumesSystem() public {
         vm.prank(pauser);
         EmergencyFacet(diamond).emergencyPause();
 
-        vm.prank(owner); // owner has EMERGENCY_ADMIN_ROLE from DiamondInit
+        vm.prank(owner);
         EmergencyFacet(diamond).emergencyUnpause();
 
-        // System should work again
         vm.prank(seller);
         kyc().initiateKYC(seller, keccak256("id"), LibAppStorage.KYCLevel.BASIC, keccak256("US"));
     }
@@ -66,10 +56,6 @@ contract EmergencyFacetTest is DiamondTestHelper {
         vm.expectRevert();
         EmergencyFacet(diamond).emergencyUnpause();
     }
-
-    // ============================================================
-    // scheduleEmergencyUpgrade
-    // ============================================================
 
     function test_scheduleEmergencyUpgrade_emitsEvent() public {
         vm.expectEmit(false, false, false, false, diamond);
@@ -91,10 +77,6 @@ contract EmergencyFacetTest is DiamondTestHelper {
         EmergencyFacet(diamond).scheduleEmergencyUpgrade(keccak256("upgrade"), 24 hours);
     }
 
-    // ============================================================
-    // emergencyWithdraw
-    // ============================================================
-
     function test_emergencyWithdraw_ethToTreasury() public {
         vm.deal(diamond, 1 ether);
         uint256 before = treasury.balance;
@@ -104,4 +86,29 @@ contract EmergencyFacetTest is DiamondTestHelper {
 
         assertEq(treasury.balance, before + 1 ether);
     }
+
+    /// @notice Assert that scheduleEmergencyUpgrade is informational only:
+    ///         it emits an event but has no execution path that can bypass
+    ///         the DiamondCutFacet timelock.
+    function test_scheduleEmergencyUpgrade_cannotBypassDiamondCutTimelock() public {
+        vm.prank(owner);
+        EmergencyFacet(diamond).scheduleEmergencyUpgrade(keccak256("upgrade-id"), 24 hours);
+
+        vm.warp(block.timestamp + 25 hours);
+
+        IDiamondCutMin.FacetCut[] memory cuts = new IDiamondCutMin.FacetCut[](0);
+        vm.prank(owner);
+        vm.expectRevert(); // TimelockRequired
+        IDiamondCutMin(diamond).diamondCut(cuts, address(0), "");
+    }
+}
+
+interface IDiamondCutMin {
+    enum FacetCutAction { Add, Replace, Remove }
+    struct FacetCut {
+        address facetAddress;
+        FacetCutAction action;
+        bytes4[] functionSelectors;
+    }
+    function diamondCut(FacetCut[] calldata, address, bytes calldata) external;
 }
