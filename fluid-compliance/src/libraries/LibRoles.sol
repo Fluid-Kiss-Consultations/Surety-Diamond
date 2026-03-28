@@ -23,6 +23,9 @@ library LibRoles {
     bytes32 internal constant SELLER_ROLE  = keccak256("SELLER_ROLE");
     bytes32 internal constant BUYER_ROLE   = keccak256("BUYER_ROLE");
 
+    // Tax role
+    bytes32 internal constant TAX_OFFICER_ROLE = keccak256("TAX_OFFICER_ROLE");
+
     // Audit role
     bytes32 internal constant AUDITOR_ROLE = keccak256("AUDITOR_ROLE");
 
@@ -53,10 +56,20 @@ library LibRoles {
     }
 
     /// @notice Grant a role to an account
+    /// @dev Requires msg.sender to hold the admin role for `role`, unless timelockDuration == 0
+    ///      (bootstrap phase — DiamondInit grants the initial admin roles before the timelock is set).
+    ///      Calling facets should still gate this with their own access-control modifier.
     /// @param role The role identifier to grant
     /// @param account The address to receive the role
     function grantRole(bytes32 role, address account) internal {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
+        // Bootstrap bypass: timelockDuration is 0 until DiamondInit completes
+        if (s.timelockDuration != 0) {
+            bytes32 adminRole = getRoleAdmin(role);
+            if (!s.roleMembers[adminRole][msg.sender]) {
+                revert AccessControlUnauthorized(msg.sender, adminRole);
+            }
+        }
         if (!s.roleMembers[role][account]) {
             s.roleMembers[role][account] = true;
             emit RoleGranted(role, account, msg.sender);
@@ -64,10 +77,19 @@ library LibRoles {
     }
 
     /// @notice Revoke a role from an account
+    /// @dev Requires msg.sender to hold the admin role for `role`, unless timelockDuration == 0
+    ///      (bootstrap phase). Calling facets should gate this with their own access-control modifier.
     /// @param role The role identifier to revoke
     /// @param account The address to remove the role from
     function revokeRole(bytes32 role, address account) internal {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
+        // Bootstrap bypass: timelockDuration is 0 until DiamondInit completes
+        if (s.timelockDuration != 0) {
+            bytes32 adminRole = getRoleAdmin(role);
+            if (!s.roleMembers[adminRole][msg.sender]) {
+                revert AccessControlUnauthorized(msg.sender, adminRole);
+            }
+        }
         if (s.roleMembers[role][account]) {
             s.roleMembers[role][account] = false;
             emit RoleRevoked(role, account, msg.sender);

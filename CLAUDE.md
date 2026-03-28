@@ -19,14 +19,14 @@ Surety-Diamond/
 ├── fluid-compliance/           # Main Solidity project (Foundry)
 │   ├── src/
 │   │   ├── diamond/            # EIP-2535 Diamond proxy and init
-│   │   ├── facets/             # 10 compliance facet contracts
+│   │   ├── facets/             # 11 compliance facet contracts
 │   │   ├── interfaces/         # 12 Solidity interfaces (I*.sol)
 │   │   └── libraries/          # Shared storage and utilities
-│   └── [root loose files]      # Old drafts — superseded by src/, should be deleted
-├── docs/
-│   └── Surety-current-state.md # Latest handoff / state-of-the-world document
+│   ├── test/                   # Foundry test suite
+│   ├── script/                 # Deployment scripts
+│   └── README.md               # Technical reference and API docs
 ├── compliance-facets-specification.md  # Full feature specification (52KB)
-├── README.md
+├── README.md                   # Project overview
 └── CLAUDE.md                   # This file
 ```
 
@@ -65,7 +65,7 @@ LibAppStorage (single storage slot)
 
 **Key principle:** Never add instance variables to facets. All state must go through `LibAppStorage.appStorage()`.
 
-### Facets (10 implemented)
+### Facets (11 implemented)
 
 | Facet | Responsibility |
 |-------|---------------|
@@ -77,6 +77,7 @@ LibAppStorage (single storage slot)
 | `JurisdictionFacet` | Multi-jurisdiction regulatory routing |
 | `AuditFacet` | Hash-chained immutable audit trail |
 | `EmergencyFacet` | System pause/unpause, emergency withdrawal |
+| `OracleFacet` | Oracle registration, ECDSA-verified external data feeds |
 | `DiamondCutFacet` | Facet upgrades with 48-hour timelock |
 | `DiamondLoupeFacet` | Facet and function enumeration |
 
@@ -150,22 +151,21 @@ No `.env` or `.env.example` file exists yet — create one before deploying.
 | Interfaces | `IPascalCase` (I prefix) |
 | Libraries | `LibPascalCase` (Lib prefix) |
 | Constants | `SCREAMING_SNAKE_CASE` |
-| Roles | `keccak256("ROLE_NAME")` bytes32 constants |
+| Roles | `keccak256("ROLE_NAME_ROLE")` bytes32 constants (always `_ROLE` suffix) |
 | Events | Past tense: `KYCApproved`, `SARFiled`, `InvoiceRegistered` |
 
 ### Access Control
 
 Always guard with role checks. Pattern:
 ```solidity
-if (!LibRoles.hasRole(LibRoles.COMPLIANCE_OFFICER, msg.sender)) {
-    revert AccessControlUnauthorized(msg.sender, LibRoles.COMPLIANCE_OFFICER);
-}
+LibRoles.checkRole(LibRoles.COMPLIANCE_OFFICER_ROLE);
 ```
 
 Role constants defined in `LibRoles.sol`:
-- `COMPLIANCE_OFFICER`, `KYC_VERIFIER`, `AML_ANALYST`, `SANCTIONS_MANAGER`
-- `ORACLE`, `FACTOR`, `SELLER`, `BUYER`
-- `EMERGENCY_ADMIN`, `PAUSER`
+- `DEFAULT_ADMIN_ROLE`, `COMPLIANCE_OFFICER_ROLE`, `KYC_VERIFIER_ROLE`, `AML_ANALYST_ROLE`, `SANCTIONS_MANAGER_ROLE`
+- `ORACLE_ROLE`, `FACTOR_ROLE`, `SELLER_ROLE`, `BUYER_ROLE`
+- `TAX_OFFICER_ROLE`, `AUDITOR_ROLE`
+- `EMERGENCY_ADMIN_ROLE`, `PAUSER_ROLE`
 
 ### Storage Access
 
@@ -209,32 +209,26 @@ The system targets these compliance frameworks:
 
 ## Current State
 
-See `docs/Surety-current-state.md` for the full handoff document. As of 2026-03-28:
+As of 2026-03-28:
 
 ### Completed
-- `LibDiamond.sol` — full EIP-2535 implementation in place
+- All 11 facets implemented and wired into `SuretyDiamond` constructor via `DiamondTestHelper`
+- `LibDiamond.sol` — full EIP-2535 implementation
+- `LibAppStorage.sol` — shared storage struct (production-ready)
+- `LibRoles.sol` — role-based access control with `_ROLE` suffix convention
 - `foundry.toml` + `remappings.txt` — configured, `forge build` passes
-- All 11 facets wired into `SuretyDiamond` constructor via `DiamondTestHelper`
-- `OracleFacet.sol` — fully implemented
-- Test suite — 114 tests passing across 11 facets + integration suite
-- Security remediations — all 14 findings (2 CRITICAL, 4 HIGH, 3 MEDIUM, 4 LOW) resolved on `security/remediation-v1`
+- `script/Deploy.s.sol` — deployment script
+- Test suite — all tests passing across 11 facets + integration suite (CI verified)
+- Security remediations — all 14 findings (2 CRITICAL, 4 HIGH, 3 MEDIUM, 4 LOW) resolved and merged
+- `fluid-compliance/README.md` — technical reference and API docs
 
 ### Remaining
-1. **Deployment script** — `script/Deploy.s.sol` not yet created
-2. **Loose `.sol` files in `fluid-compliance/` root** — old drafts that duplicate `src/`; should be deleted
-3. **`fluid-compliance/README.md`** — project-level docs missing
-4. **Fuzzing tests** — risk scoring and invoice validation edge cases
-5. **`security/remediation-v1` → `main`** — security branch pending merge
-
----
-
-## Priority Order for Next Work
-
-1. Merge `security/remediation-v1` into `main`
-2. Create `script/Deploy.s.sol`
-3. Add fuzzing tests for risk scoring and invoice validation
-4. Clean up loose files in `fluid-compliance/` root
-5. Write `fluid-compliance/README.md`
+1. **`.env.example`** — create with required deployment variables
+2. **Fuzzing tests** — risk scoring and invoice validation edge cases
+3. **Deploy.s.sol selector verification** — verify selector arrays against `forge inspect` output before mainnet use
+4. **Stub function implementations** — `OracleFacet.getPendingRequests` (filter by dataType), `InvoiceRegistryFacet.getFactoringStatus` (return actual factor address), `AuditFacet.getAuditStats` (filter by eventType/period)
+5. **Unused parameter logic** — implement storage/logging for: `narrative` in `AMLFacet.fileSAR`, `paymentReference` in `InvoiceRegistryFacet.recordPayment`, `reason`/`clearanceReason` in `SanctionsFacet`
+6. **SanctionsFacet event enrichment** — resolve `address(0)` in `addToSanctionsList` and `removeFromSanctionsList` event emissions (add entity address parameter or hash-indexed event variant)
 
 ---
 
@@ -251,10 +245,8 @@ See `docs/Surety-current-state.md` for the full handoff document. As of 2026-03-
 
 ## Documentation References
 
-- `compliance-facets-specification.md` — Complete feature spec with business context
-- `fluid-compliance/Surety Deployment Guide.md` — Full API reference and deployment steps
-- `docs/Surety-current-state.md` — Current state handoff (most recent)
-- `nikosys-IComplianceDiamond.txt` — Upstream interface reference
+- `compliance-facets-specification.md` — Complete feature spec with business context (52KB)
+- `fluid-compliance/README.md` — Technical reference, API docs, deployment, and security
 
 ---
 

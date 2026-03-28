@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IDiamondCut} from "../interfaces/IDiamondCut.sol";
+
 /// @notice Reverted when a state-changing call is made while the system is paused
 error SystemPaused();
+
+/// @notice Reverted when a reentrant call is detected
+error Reentrancy();
 
 /// @title LibAppStorage
 /// @author Surety Compliance System
@@ -311,6 +316,19 @@ library LibAppStorage {
     }
 
     // ============================================================
+    // Diamond Upgrade Queue
+    // ============================================================
+
+    /// @notice A scheduled facet upgrade awaiting timelock expiry
+    struct ScheduledCut {
+        IDiamondCut.FacetCut[] cuts;
+        address init;
+        bytes initCalldata;
+        uint256 executeAfter;
+        bool executed;
+    }
+
+    // ============================================================
     // Main Storage Struct
     // ============================================================
 
@@ -375,6 +393,19 @@ library LibAppStorage {
         uint256 lastSystemUpdate;
         address treasuryAddress;
         uint256 timelockDuration;
+
+        // ===== Diamond Upgrade Queue =====
+        mapping(bytes32 => ScheduledCut) scheduledCuts;
+
+        // ===== Reentrancy Guard =====
+        // 1 = NOT_ENTERED, 2 = ENTERED
+        uint256 _reentrancyStatus;
+
+        // ===== Oracle Nonces =====
+        mapping(address => uint256) oracleNonce;
+
+        // ===== Oracle Per-Type Counts =====
+        mapping(uint8 => uint256) oracleTypeCount;
     }
 
     // ============================================================

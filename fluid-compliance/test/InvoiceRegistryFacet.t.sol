@@ -16,10 +16,6 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
         (, buyerPk)  = makeAddrAndKey("buyer");
     }
 
-    // ============================================================
-    // registerInvoice
-    // ============================================================
-
     function test_registerInvoice_storesRecord() public {
         bytes32 invoiceHash = _registerInvoice(100_000 * 1e18);
         LibAppStorage.InvoiceRecord memory rec = invoice().getInvoice(invoiceHash);
@@ -38,23 +34,19 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
     function test_registerInvoice_revertsOnDuplicate() public {
         _registerInvoice(50_000 * 1e18);
         vm.expectRevert();
-        _registerInvoice(50_000 * 1e18); // same params → same hash
+        _registerInvoice(50_000 * 1e18);
     }
 
     function test_registerInvoice_revertsIfNotSeller() public {
-        LibAppStorage.InvoiceRecord memory inv = _buildInvoice(buyer, seller, 10_000 * 1e18); // wrong sender
+        LibAppStorage.InvoiceRecord memory inv = _buildInvoice(buyer, seller, 10_000 * 1e18);
         bytes32 invHash = keccak256(abi.encodePacked(
             inv.seller, inv.buyer, inv.amount, inv.currency, inv.issueDate, inv.dueDate, inv.purchaseOrderRef
         ));
         bytes memory sig = _buildSellerSig(buyerPk, invHash);
-        vm.prank(buyer); // buyer trying to register with buyer as "seller"
+        vm.prank(buyer);
         vm.expectRevert();
         invoice().registerInvoice(inv, sig);
     }
-
-    // ============================================================
-    // verifyInvoice
-    // ============================================================
 
     function test_verifyInvoice_setsVerifiedStatus() public {
         bytes32 invoiceHash = _registerInvoice(100_000 * 1e18);
@@ -70,16 +62,11 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
     function test_verifyInvoice_revertsWithWrongBuyerSig() public {
         bytes32 invoiceHash = _registerInvoice(100_000 * 1e18);
 
-        // Sign with seller key instead of buyer
         bytes memory wrongSig = _buildSellerSig(sellerPk, invoiceHash);
         vm.prank(buyer);
         vm.expectRevert();
         invoice().verifyInvoice(invoiceHash, wrongSig);
     }
-
-    // ============================================================
-    // createFactoringAgreement + double-factoring prevention
-    // ============================================================
 
     function test_createFactoringAgreement_succeeds() public {
         bytes32 invoiceHash = _verifiedInvoice(200_000 * 1e18);
@@ -98,7 +85,6 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
         vm.prank(factor);
         invoice().createFactoringAgreement(invoiceHash, factor, 8000, 200);
 
-        // Second attempt must revert
         vm.prank(factor);
         vm.expectRevert();
         invoice().createFactoringAgreement(invoiceHash, factor, 7000, 150);
@@ -109,7 +95,7 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
 
         vm.prank(factor);
         vm.expectRevert();
-        invoice().createFactoringAgreement(invoiceHash, factor, 9600, 200); // > 9500 bps
+        invoice().createFactoringAgreement(invoiceHash, factor, 9600, 200);
     }
 
     function test_canFactor_trueForVerifiedInvoice() public {
@@ -126,16 +112,12 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
         assertFalse(ok);
     }
 
-    // ============================================================
-    // recordPayment
-    // ============================================================
-
     function test_recordPayment_fullPaymentSetsPaid() public {
         bytes32 invoiceHash = _verifiedInvoice(100_000 * 1e18);
         vm.prank(factor);
         invoice().createFactoringAgreement(invoiceHash, factor, 8000, 200);
 
-        vm.prank(buyer);
+        vm.prank(factor); // FACTOR_ROLE required to record payment
         invoice().recordPayment(invoiceHash, 100_000 * 1e18, keccak256("PAY-001"));
 
         LibAppStorage.InvoiceRecord memory rec = invoice().getInvoice(invoiceHash);
@@ -147,16 +129,12 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
         vm.prank(factor);
         invoice().createFactoringAgreement(invoiceHash, factor, 8000, 200);
 
-        vm.prank(buyer);
+        vm.prank(factor); // FACTOR_ROLE required to record payment
         invoice().recordPayment(invoiceHash, 50_000 * 1e18, keccak256("PAY-PARTIAL"));
 
         LibAppStorage.InvoiceRecord memory rec = invoice().getInvoice(invoiceHash);
         assertEq(uint8(rec.status), uint8(LibAppStorage.InvoiceStatus.PARTIALLY_PAID));
     }
-
-    // ============================================================
-    // raiseDispute
-    // ============================================================
 
     function test_raiseDispute_setsDisputedStatus() public {
         bytes32 invoiceHash = _verifiedInvoice(100_000 * 1e18);
@@ -167,10 +145,6 @@ contract InvoiceRegistryFacetTest is DiamondTestHelper {
         LibAppStorage.InvoiceRecord memory rec = invoice().getInvoice(invoiceHash);
         assertEq(uint8(rec.status), uint8(LibAppStorage.InvoiceStatus.DISPUTED));
     }
-
-    // ============================================================
-    // Helpers
-    // ============================================================
 
     function _registerInvoice(uint256 amount) internal returns (bytes32 invoiceHash) {
         LibAppStorage.InvoiceRecord memory inv = _buildInvoice(seller, buyer, amount);

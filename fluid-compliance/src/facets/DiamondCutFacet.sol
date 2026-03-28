@@ -2,13 +2,15 @@
 pragma solidity ^0.8.24;
 
 import {LibDiamond} from "../libraries/LibDiamond.sol";
-import {LibRoles} from "../libraries/LibRoles.sol";
+import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 import {IDiamondCut} from "../interfaces/IDiamondCut.sol";
 
 /// @title DiamondCutFacet
 /// @notice EIP-2535 facet management with timelock enforcement
 /// @dev Handles Add/Replace/Remove operations for facet function selectors.
 ///      All upgrades must be scheduled through the timelock mechanism.
+///      The direct diamondCut() path is disabled after initialization — use
+///      scheduleDiamondCut() + executeDiamondCut() instead.
 contract DiamondCutFacet is IDiamondCut {
 
     uint256 public constant MIN_TIMELOCK = 48 hours;
@@ -18,16 +20,8 @@ contract DiamondCutFacet is IDiamondCut {
     error UpgradeNotScheduled();
     error UpgradeAlreadyExecuted();
     error DelayTooShort(uint256 provided, uint256 minimum);
-
-    struct ScheduledCut {
-        FacetCut[] cuts;
-        address init;
-        bytes initCalldata;
-        uint256 executeAfter;
-        bool executed;
-    }
-
-    mapping(bytes32 => ScheduledCut) public scheduledCuts;
+    /// @notice Reverts when owner attempts a direct cut after the system has been initialized
+    error TimelockRequired();
 
     // ============ Schedule ============
 
@@ -47,7 +41,7 @@ contract DiamondCutFacet is IDiamondCut {
         if (_delay < MIN_TIMELOCK) revert DelayTooShort(_delay, MIN_TIMELOCK);
 
         upgradeId = keccak256(abi.encode(_diamondCut, _init, _calldata, block.timestamp));
-        ScheduledCut storage sc = scheduledCuts[upgradeId];
+        LibAppStorage.ScheduledCut storage sc = LibAppStorage.appStorage().scheduledCuts[upgradeId];
         sc.init = _init;
         sc.initCalldata = _calldata;
         sc.executeAfter = block.timestamp + _delay;
@@ -63,7 +57,7 @@ contract DiamondCutFacet is IDiamondCut {
     /// @param upgradeId The identifier returned by scheduleDiamondCut
     function executeDiamondCut(bytes32 upgradeId) external {
         LibDiamond.enforceIsContractOwner();
-        ScheduledCut storage sc = scheduledCuts[upgradeId];
+        LibAppStorage.ScheduledCut storage sc = LibAppStorage.appStorage().scheduledCuts[upgradeId];
 
         if (sc.executeAfter == 0) revert UpgradeNotScheduled();
         if (sc.executed) revert UpgradeAlreadyExecuted();
@@ -77,16 +71,20 @@ contract DiamondCutFacet is IDiamondCut {
 
     // ============ IDiamondCut ============
 
-    /// @notice Direct cut — bypasses timelock. Intended for initial deployment only.
-    /// @param _diamondCut Array of facet cuts to apply immediately
-    /// @param _init Optional initializer address (address(0) to skip)
-    /// @param _calldata Calldata for the initializer
+    /// @notice Direct cut — disabled after initialization. Reverts with TimelockRequired
+    ///         once timelockDuration has been set by DiamondInit. Use scheduleDiamondCut()
+    ///         followed by executeDiamondCut() for all post-deploy upgrades.
+    /// @param _diamondCut Array of facet cuts (unused post-init)
+    /// @param _init Optional initializer address (unused post-init)
+    /// @param _calldata Calldata for the initializer (unused post-init)
     function diamondCut(
         FacetCut[] calldata _diamondCut,
         address _init,
         bytes calldata _calldata
     ) external override {
         LibDiamond.enforceIsContractOwner();
+        // Revert if the system has been initialized — all post-init cuts must go through the timelock
+        if (LibAppStorage.appStorage().timelockDuration != 0) revert TimelockRequired();
         LibDiamond.diamondCut(_diamondCut, _init, _calldata);
     }
 }

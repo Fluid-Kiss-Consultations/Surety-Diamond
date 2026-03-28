@@ -29,9 +29,7 @@ contract FATCACRSFacet is IFATCACRSFacet {
     error InvalidClassification();
     error TaxFormExpired();
     error InvalidTaxForm();
-    error ReportingNotRequired();
     error ObligationNotFound();
-    error UnauthorizedTaxOfficer();
 
     // ============================================================
     // Modifiers
@@ -43,7 +41,7 @@ contract FATCACRSFacet is IFATCACRSFacet {
     }
 
     modifier onlyTaxOfficer() {
-        LibRoles.checkRole(keccak256("TAX_OFFICER_ROLE"));
+        LibRoles.checkRole(LibRoles.TAX_OFFICER_ROLE);
         _;
     }
 
@@ -219,7 +217,6 @@ contract FATCACRSFacet is IFATCACRSFacet {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         bytes32[] memory ids = s.pendingObligationIds[entity];
 
-        // Count matching obligations
         uint256 count = 0;
         for (uint256 i = 0; i < ids.length; i++) {
             LibAppStorage.ReportingObligation memory ob = s.reportingObligations[ids[i]];

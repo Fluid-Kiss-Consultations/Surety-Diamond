@@ -92,7 +92,7 @@ Compliance logic is a poor fit for monolithic contracts. The Diamond Standard wa
 ```bash
 cd fluid-compliance
 forge build
-forge test        # 111 tests, all passing
+forge test        # all tests passing (see CI badge)
 ```
 
 Full architecture documentation, facet reference, role table, and deployment instructions: [`fluid-compliance/README.md`](fluid-compliance/README.md)

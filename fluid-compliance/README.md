@@ -194,20 +194,94 @@ Key test files:
 
 ---
 
+## Post-Deployment Configuration
+
+```solidity
+// 1. Grant initial roles
+diamond.grantRole(COMPLIANCE_OFFICER_ROLE, complianceOfficer);
+diamond.grantRole(KYC_VERIFIER_ROLE, kycVerifier);
+diamond.grantRole(AML_ANALYST_ROLE, amlAnalyst);
+
+// 2. Configure jurisdictions
+diamond.configureJurisdiction(usConfig);
+diamond.configureJurisdiction(euConfig);
+
+// 3. Register oracles
+diamond.registerOracle(chainlinkOracle, [SANCTIONS_LIST, EXCHANGE_RATE]);
+
+// 4. Set thresholds
+diamond.setReportingThreshold(10000 * 1e18); // $10,000
+```
+
+---
+
+## Upgrade Procedures
+
+All facet upgrades follow a three-step timelocked process:
+
+```solidity
+// 1. Prepare facet cut
+FacetCut[] memory cut = new FacetCut[](1);
+cut[0] = FacetCut({
+    facetAddress: newFacetAddress,
+    action: FacetCutAction.Replace,
+    functionSelectors: selectors
+});
+
+// 2. Schedule upgrade (48-hour timelock)
+diamond.scheduleUpgrade(cut, initAddress, initData);
+
+// 3. Execute after timelock expires
+diamond.executeUpgrade(upgradeId);
+```
+
+---
+
+## Security
+
+### Access Control Matrix
+
+| Role | Critical Functions | Risk Level |
+|------|-------------------|------------|
+| `DEFAULT_ADMIN_ROLE` | Diamond upgrades, role management | CRITICAL |
+| `COMPLIANCE_OFFICER_ROLE` | SAR submission, jurisdiction config | HIGH |
+| `KYC_VERIFIER_ROLE` | Identity verification | HIGH |
+| `AML_ANALYST_ROLE` | Risk scoring, transaction monitoring | MEDIUM |
+| `SANCTIONS_MANAGER_ROLE` | Sanctions list management | HIGH |
+| `ORACLE_ROLE` | External data updates | MEDIUM |
+| `EMERGENCY_ADMIN_ROLE` | System pause, emergency withdraw | CRITICAL |
+
+### Security Features
+
+1. **48-hour Timelock** — All diamond upgrades
+2. **Reentrancy Guards** — State-changing functions
+3. **Custom Errors** — Gas-efficient error handling
+4. **Pausability** — Emergency stop mechanism
+5. **Audit Trail** — Immutable, hash-chained logging
+
+### Known Limitations
+
+1. **Storage Layout** — Must maintain consistency across upgrades
+2. **Function Selectors** — Manual collision prevention required
+3. **Oracle Trust** — Relies on trusted external data providers
+4. **Gas Costs** — Complex operations may exceed block limits
+
+---
+
 ## Known Gaps / Next Steps
 
 - `script/Deploy.s.sol` needs selector array verification against `forge inspect` output before mainnet use
 - Test coverage target is ≥90% per facet — run `forge coverage` to check current status
 - `DiamondInit.init` can only be called once; post-init role grants require an owner transaction via `LibRoles` internals or a dedicated admin facet
-- The `JurisdictionFacet.blockJurisdictionOperation` currently only handles `FACTORING`; extend for other operation types as needed
+- `JurisdictionFacet.blockJurisdictionOperation` currently only handles `FACTORING`; extend for other operation types as needed
+- Create `.env.example` with required deployment variables
+- Add fuzzing tests for risk scoring and invoice validation edge cases
 
 ---
 
 ## References
 
-- `docs/Surety-current-state.md` — Full handoff / state-of-the-world (top-level `docs/`)
-- `docs/Surety Deployment Guide.md` — API reference and deployment walkthrough
-- `../../compliance-facets-specification.md` — Complete feature specification (52KB)
+- [`compliance-facets-specification.md`](../compliance-facets-specification.md) — Complete feature specification (52KB)
 - [EIP-2535 Diamond Standard](https://eips.ethereum.org/EIPS/eip-2535)
 
 ---

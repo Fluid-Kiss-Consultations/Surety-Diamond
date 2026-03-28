@@ -13,13 +13,8 @@ contract OracleFacetTest is DiamondTestHelper {
     function setUp() public override {
         super.setUp();
         (oracleAddr, oraclePk) = makeAddrAndKey("oracle");
-        // Override the helper oracle address
         oracle = oracleAddr;
     }
-
-    // ============================================================
-    // registerOracle
-    // ============================================================
 
     function test_registerOracle_setsActive() public {
         LibAppStorage.OracleDataType[] memory types = _allTypes();
@@ -42,9 +37,21 @@ contract OracleFacetTest is DiamondTestHelper {
         IOracleFacetTest(diamond).registerOracle(oracleAddr, _allTypes());
     }
 
-    // ============================================================
-    // revokeOracle
-    // ============================================================
+    function test_registerOracle_revertsWhenLimitReached() public {
+        LibAppStorage.OracleDataType[] memory sanctionsOnly = new LibAppStorage.OracleDataType[](1);
+        sanctionsOnly[0] = LibAppStorage.OracleDataType.SANCTIONS_LIST;
+
+        for (uint256 i = 0; i < 5; i++) {
+            (address addr,) = makeAddrAndKey(string(abi.encodePacked("oracle-limit-", i)));
+            vm.prank(owner);
+            IOracleFacetTest(diamond).registerOracle(addr, sanctionsOnly);
+        }
+
+        (address sixth,) = makeAddrAndKey("oracle-limit-sixth");
+        vm.prank(owner);
+        vm.expectRevert();
+        IOracleFacetTest(diamond).registerOracle(sixth, sanctionsOnly);
+    }
 
     function test_revokeOracle_clearsActive() public {
         _registerOracle();
@@ -59,19 +66,11 @@ contract OracleFacetTest is DiamondTestHelper {
         IOracleFacetTest(diamond).revokeOracle(oracleAddr);
     }
 
-    // ============================================================
-    // getOracleAuthorizations
-    // ============================================================
-
     function test_getOracleAuthorizations_returnsTypes() public {
         _registerOracle();
         LibAppStorage.OracleDataType[] memory types = IOracleFacetTest(diamond).getOracleAuthorizations(oracleAddr);
         assertEq(types.length, 6);
     }
-
-    // ============================================================
-    // submitOracleUpdate
-    // ============================================================
 
     function test_submitOracleUpdate_sanctionsListUpdate() public {
         _registerOracle();
@@ -80,12 +79,12 @@ contract OracleFacetTest is DiamondTestHelper {
         bytes memory data = abi.encode(newRoot);
         bytes32 dataKey = bytes32(uint256(LibAppStorage.SanctionsList.OFAC_SDN));
 
+        uint256 nonce = 0;
         bytes32 msgHash = keccak256(abi.encodePacked(
-            LibAppStorage.OracleDataType.SANCTIONS_LIST, dataKey, data, block.timestamp
+            LibAppStorage.OracleDataType.SANCTIONS_LIST, dataKey, data, nonce, block.timestamp
         ));
         bytes memory sig = _signOracle(msgHash);
 
-        // Need ORACLE_ROLE for oracleAddr
         _grantRole(LibRoles.ORACLE_ROLE, oracleAddr);
 
         vm.prank(oracleAddr);
@@ -93,7 +92,6 @@ contract OracleFacetTest is DiamondTestHelper {
             LibAppStorage.OracleDataType.SANCTIONS_LIST, dataKey, data, sig
         );
 
-        // Verify Merkle root was updated
         (bytes32 root,) = ISanctionsFacetMin(diamond).getSanctionsListRoot(LibAppStorage.SanctionsList.OFAC_SDN);
         assertEq(root, newRoot);
     }
@@ -104,7 +102,7 @@ contract OracleFacetTest is DiamondTestHelper {
 
         bytes memory data = abi.encode(keccak256("root"));
         bytes32 dataKey = bytes32(uint256(0));
-        bytes memory badSig = new bytes(65); // all zeros
+        bytes memory badSig = new bytes(65);
 
         vm.prank(oracleAddr);
         vm.expectRevert();
@@ -113,10 +111,6 @@ contract OracleFacetTest is DiamondTestHelper {
         );
     }
 
-    // ============================================================
-    // requestOracleData
-    // ============================================================
-
     function test_requestOracleData_returnsRequestId() public {
         vm.prank(seller);
         bytes32 reqId = IOracleFacetTest(diamond).requestOracleData(
@@ -124,10 +118,6 @@ contract OracleFacetTest is DiamondTestHelper {
         );
         assertNotEq(reqId, bytes32(0));
     }
-
-    // ============================================================
-    // Helpers
-    // ============================================================
 
     function _registerOracle() internal {
         vm.prank(owner);

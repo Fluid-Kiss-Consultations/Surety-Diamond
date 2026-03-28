@@ -25,11 +25,9 @@ contract OracleFacet is IOracleFacet {
 
     error UnauthorizedOracle();
     error OracleAlreadyRegistered();
-    error InvalidDataType();
     error DataExpired();
-    error RequestNotFound();
     error InvalidSignature();
-    error TooManyOracles();
+    error OracleLimitReached(uint8 dataType);
     error OracleNotRegistered();
     error ZeroAddress();
 
@@ -65,6 +63,15 @@ contract OracleFacet is IOracleFacet {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         if (s.oracleActive[oracle]) revert OracleAlreadyRegistered();
 
+        // Enforce per-type oracle limit
+        for (uint256 i = 0; i < authorizedTypes.length; i++) {
+            uint8 typeId = uint8(authorizedTypes[i]);
+            if (s.oracleTypeCount[typeId] >= MAX_ORACLES_PER_TYPE) {
+                revert OracleLimitReached(typeId);
+            }
+            s.oracleTypeCount[typeId]++;
+        }
+
         LibRoles.grantRole(LibRoles.ORACLE_ROLE, oracle);
         s.oracleActive[oracle] = true;
         s.oracleAuthorizedTypes[oracle] = abi.encode(authorizedTypes);
@@ -76,6 +83,18 @@ contract OracleFacet is IOracleFacet {
     function revokeOracle(address oracle) external whenNotPaused onlyAdmin {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         if (!s.oracleActive[oracle]) revert OracleNotRegistered();
+
+        // Decrement per-type counts before clearing authorizations
+        bytes memory encoded = s.oracleAuthorizedTypes[oracle];
+        if (encoded.length > 0) {
+            LibAppStorage.OracleDataType[] memory types = abi.decode(encoded, (LibAppStorage.OracleDataType[]));
+            for (uint256 i = 0; i < types.length; i++) {
+                uint8 typeId = uint8(types[i]);
+                if (s.oracleTypeCount[typeId] > 0) {
+                    s.oracleTypeCount[typeId]--;
+                }
+            }
+        }
 
         LibRoles.revokeRole(LibRoles.ORACLE_ROLE, oracle);
         s.oracleActive[oracle] = false;
@@ -91,21 +110,22 @@ contract OracleFacet is IOracleFacet {
     ) external whenNotPaused onlyOracle {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
 
-        // Verify oracle is authorised for this data type
         if (!_isAuthorizedForType(s, msg.sender, dataType)) revert UnauthorizedOracle();
 
-        // Verify ECDSA signature over (dataType, dataKey, dataValue, timestamp)
+        // Nonce prevents replay attacks across blocks with the same timestamp
+        uint256 nonce = s.oracleNonce[msg.sender];
         bytes32 messageHash = keccak256(abi.encodePacked(
-            dataType, dataKey, dataValue, block.timestamp
+            dataType, dataKey, dataValue, nonce, block.timestamp
         ));
         if (!_verifySignature(messageHash, signature, msg.sender)) revert InvalidSignature();
 
-        // Cache data keyed by (dataType hash, dataKey)
+        // Increment nonce after successful signature verification
+        s.oracleNonce[msg.sender] = nonce + 1;
+
         bytes32 typeKey = bytes32(uint256(dataType));
         s.oracleCachedData[typeKey][dataKey] = dataValue;
         s.oracleDataTimestamps[typeKey][dataKey] = block.timestamp;
 
-        // Process known update types
         if (dataType == LibAppStorage.OracleDataType.SANCTIONS_LIST) {
             _processSanctionsUpdate(s, dataKey, dataValue);
         }
@@ -162,20 +182,26 @@ contract OracleFacet is IOracleFacet {
     function getPendingRequests(
         LibAppStorage.OracleDataType dataType
     ) external view returns (LibAppStorage.OracleRequest[] memory requests) {
-        // Off-chain indexing is the efficient pattern for enumeration.
-        // Return empty array — callers should use OracleDataUpdated events to discover requests.
+        // TODO: Implement filtering by dataType — currently returns empty array regardless of input
         requests = new LibAppStorage.OracleRequest[](0);
+    }
+
+    /// @inheritdoc IOracleFacet
+    function getOracleData(
+        LibAppStorage.OracleDataType dataType,
+        bytes32 dataKey
+    ) external view returns (bytes memory data, uint256 timestamp) {
+        LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
+        bytes32 typeKey = bytes32(uint256(dataType));
+        timestamp = s.oracleDataTimestamps[typeKey][dataKey];
+        if (timestamp == 0 || block.timestamp > timestamp + ORACLE_DATA_EXPIRY) revert DataExpired();
+        data = s.oracleCachedData[typeKey][dataKey];
     }
 
     // ============================================================
     // Internal
     // ============================================================
 
-    /// @notice Check if an oracle is authorised for a specific data type
-    /// @param s AppStorage reference
-    /// @param oracle The oracle address to check
-    /// @param dataType The data type to verify authorisation for
-    /// @return True if the oracle is active and authorised for the given data type
     function _isAuthorizedForType(
         LibAppStorage.AppStorage storage s,
         address oracle,
@@ -191,10 +217,6 @@ contract OracleFacet is IOracleFacet {
         return false;
     }
 
-    /// @notice Update the Merkle root for a sanctions list via oracle feed
-    /// @param s AppStorage reference
-    /// @param dataKey Encoded SanctionsList enum value identifying the list to update
-    /// @param dataValue ABI-encoded bytes32 Merkle root for the sanctions list
     function _processSanctionsUpdate(
         LibAppStorage.AppStorage storage s,
         bytes32 dataKey,
@@ -206,11 +228,6 @@ contract OracleFacet is IOracleFacet {
         s.lastSanctionsUpdate[listType] = block.timestamp;
     }
 
-    /// @notice Recover signer from an Ethereum-prefixed message hash
-    /// @param messageHash The raw keccak256 hash of the signed data
-    /// @param signature 65-byte ECDSA signature (r, s, v)
-    /// @param expectedSigner Address expected to have produced the signature
-    /// @return True if the recovered signer matches expectedSigner and is non-zero
     function _verifySignature(
         bytes32 messageHash,
         bytes memory signature,

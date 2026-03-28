@@ -152,6 +152,7 @@ contract AMLFacet is IAMLFacet {
         uint256 riskScore,
         string calldata narrative
     ) external whenNotPaused onlyComplianceOfficer {
+        // TODO: Store narrative in SAR record — currently only emitted via event fields
         emit SARFiled(transactionId, entity, riskScore, block.timestamp);
     }
 

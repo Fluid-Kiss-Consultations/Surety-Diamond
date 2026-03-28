@@ -266,7 +266,7 @@ contract DeploySurety is Script {
     }
 
     function _oracleSelectors() internal pure returns (bytes4[] memory s) {
-        s = new bytes4[](7);
+        s = new bytes4[](8);
         s[0] = IOracleFacet.registerOracle.selector;
         s[1] = IOracleFacet.revokeOracle.selector;
         s[2] = IOracleFacet.submitOracleUpdate.selector;
@@ -274,6 +274,7 @@ contract DeploySurety is Script {
         s[4] = IOracleFacet.isAuthorizedOracle.selector;
         s[5] = IOracleFacet.getOracleAuthorizations.selector;
         s[6] = IOracleFacet.getPendingRequests.selector;
+        s[7] = IOracleFacet.getOracleData.selector;
     }
 
     // ============================================================

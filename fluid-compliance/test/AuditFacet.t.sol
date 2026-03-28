@@ -6,10 +6,6 @@ import {LibAppStorage} from "../src/libraries/LibAppStorage.sol";
 
 contract AuditFacetTest is DiamondTestHelper {
 
-    // ============================================================
-    // logAudit
-    // ============================================================
-
     function test_logAudit_storesEntry() public {
         vm.prank(auditor);
         bytes32 entryId = audit().logAudit(
@@ -39,24 +35,15 @@ contract AuditFacetTest is DiamondTestHelper {
         assertNotEq(before, after_);
     }
 
-    // ============================================================
-    // Hash chain integrity
-    // ============================================================
-
     function test_hashChainIntegrity_twoEntries() public {
         vm.startPrank(auditor);
         bytes32 id1 = audit().logAudit(LibAppStorage.AuditEventType.KYC_INITIATED, seller, keccak256("1"));
         bytes32 id2 = audit().logAudit(LibAppStorage.AuditEventType.KYC_APPROVED,  buyer,  keccak256("2"));
         vm.stopPrank();
 
-        // Entry 2 should reference the hash state after entry 1
         LibAppStorage.AuditEntry memory entry2 = audit().getAuditEntry(id2);
         assertNotEq(entry2.previousEntryHash, bytes32(0));
     }
-
-    // ============================================================
-    // verifyAuditChain
-    // ============================================================
 
     function test_verifyAuditChain_sameEntryIsValid() public {
         vm.prank(auditor);
@@ -69,10 +56,6 @@ contract AuditFacetTest is DiamondTestHelper {
     function test_verifyAuditChain_invalidChainReturnsFalse() public view {
         assertFalse(audit().verifyAuditChain(keccak256("nonexistent"), keccak256("also-nonexistent")));
     }
-
-    // ============================================================
-    // getEntityAuditTrail
-    // ============================================================
 
     function test_getEntityAuditTrail_filtersCorrectly() public {
         vm.startPrank(auditor);
@@ -101,40 +84,35 @@ contract AuditFacetTest is DiamondTestHelper {
         vm.prank(auditor);
         audit().logAudit(LibAppStorage.AuditEventType.KYC_INITIATED, seller, keccak256("2"));
 
-        // Only the entry from hour 1 should be in range [t1, t1+1min]
         LibAppStorage.AuditEntry[] memory entries = audit().getEntityAuditTrail(
             seller, LibAppStorage.AuditEventType.KYC_INITIATED, t1, t1 + 1 minutes
         );
         assertEq(entries.length, 1);
     }
 
-    // ============================================================
-    // Typed logging helpers
-    // ============================================================
-
     function test_logKYCEvent_validType() public {
-        vm.prank(officer); // any caller — no role check on typed helpers
+        vm.prank(auditor); // requires AUDITOR_ROLE
         audit().logKYCEvent(seller, LibAppStorage.AuditEventType.KYC_APPROVED, keccak256("kyc"));
     }
 
     function test_logKYCEvent_invalidTypeReverts() public {
-        vm.prank(officer);
+        vm.prank(auditor);
         vm.expectRevert();
         audit().logKYCEvent(seller, LibAppStorage.AuditEventType.SAR_FILED, keccak256("bad"));
     }
 
     function test_logAMLEvent_validType() public {
-        vm.prank(officer);
+        vm.prank(auditor);
         audit().logAMLEvent(seller, LibAppStorage.AuditEventType.SAR_FILED, keccak256("sar"));
     }
 
     function test_logSanctionsEvent_validType() public {
-        vm.prank(officer);
+        vm.prank(auditor);
         audit().logSanctionsEvent(seller, LibAppStorage.AuditEventType.SANCTIONS_SCREENED, keccak256("s"));
     }
 
     function test_logSanctionsEvent_invalidTypeReverts() public {
-        vm.prank(officer);
+        vm.prank(auditor);
         vm.expectRevert();
         audit().logSanctionsEvent(seller, LibAppStorage.AuditEventType.KYC_APPROVED, keccak256("bad"));
     }

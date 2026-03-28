@@ -31,7 +31,6 @@ contract DiamondTest is DiamondTestHelper {
     // ============================================================
 
     function test_loupe_facetAddressForKnownSelector() public view {
-        // isKYCCompliant selector should route to KYCFacet
         bytes4 sel = IKYCFacetMin.isKYCCompliant.selector;
         address facetAddr = loupe().facetAddress(sel);
         assertNotEq(facetAddr, address(0));
@@ -58,7 +57,6 @@ contract DiamondTest is DiamondTestHelper {
     function test_fallback_unknownSelectorReverts() public {
         (bool ok, bytes memory err) = diamond.call(abi.encodeWithSelector(0xdeadbeef));
         assertFalse(ok);
-        // Should revert with FunctionDoesNotExist
         assertTrue(err.length > 0);
     }
 
@@ -106,13 +104,21 @@ contract DiamondTest is DiamondTestHelper {
     }
 
     // ============================================================
-    // Direct diamondCut (owner only, bypasses timelock)
+    // Direct diamondCut — disabled post-initialization (CRITICAL-1)
     // ============================================================
 
     function test_diamondCut_revertsIfNotOwner() public {
         IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](0);
         vm.prank(seller);
         vm.expectRevert();
+        IDiamondCut(diamond).diamondCut(cuts, address(0), "");
+    }
+
+    function test_diamondCut_revertsForOwnerPostInit() public {
+        // After DiamondInit sets timelockDuration, direct cuts must revert
+        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](0);
+        vm.prank(owner);
+        vm.expectRevert(); // TimelockRequired
         IDiamondCut(diamond).diamondCut(cuts, address(0), "");
     }
 }
