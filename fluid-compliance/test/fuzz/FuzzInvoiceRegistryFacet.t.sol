@@ -25,12 +25,8 @@ contract FuzzInvoiceRegistryFacetTest is DiamondTestHelper {
 
     function testFuzz_registerInvoice_amountBounds(uint256 amount) public {
         if (amount == 0 || amount > MAX_INVOICE_AMOUNT) {
-            // Build invoice and signature inline to avoid helper's vm.prank
-            LibAppStorage.InvoiceRecord memory inv = _buildInvoice(seller, buyer, amount);
-            bytes32 invHash = keccak256(abi.encodePacked(
-                inv.seller, inv.buyer, inv.amount, inv.currency, inv.issueDate, inv.dueDate, inv.purchaseOrderRef
-            ));
-            bytes memory sig = _buildSellerSig(sellerPk, invHash);
+            // vm.prank is NOT set here — _tryRegisterInvoice sets it internally
+            // immediately before the contract call, preventing double-prank conflict.
             vm.expectRevert();
             vm.prank(seller);
             invoice().registerInvoice(inv, sig);
