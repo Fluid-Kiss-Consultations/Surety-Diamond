@@ -97,7 +97,7 @@ contract FATCACRSFacet is IFATCACRSFacet {
         s.taxClassifications[entity].w8w9OnFile = true;
         s.taxClassifications[entity].expirationDate = expirationDate;
 
-        emit TaxFormStatusChanged(entity, true, expirationDate);
+        emit TaxFormStatusChanged(entity, true, expirationDate, block.timestamp);
     }
 
     /// @inheritdoc IFATCACRSFacet

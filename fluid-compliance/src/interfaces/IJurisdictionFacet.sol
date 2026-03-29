@@ -8,8 +8,8 @@ import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 interface IJurisdictionFacet {
 
     event JurisdictionUpdated(bytes32 indexed jurisdictionId, bool isActive, uint256 timestamp);
-    event EntityJurisdictionAssigned(address indexed entity, bytes32 indexed jurisdictionId);
-    event CrossBorderAssessed(bytes32 indexed assessmentId, bytes32 indexed sourceJurisdiction, bytes32 indexed destJurisdiction, bool isPermitted);
+    event EntityJurisdictionAssigned(address indexed entity, bytes32 indexed jurisdictionId, uint256 timestamp);
+    event CrossBorderAssessed(bytes32 indexed assessmentId, bytes32 indexed sourceJurisdiction, bytes32 indexed destJurisdiction, bool isPermitted, uint256 timestamp);
 
     /// @notice Configure or update a jurisdiction's compliance rules
     /// @param config The jurisdiction configuration struct to apply

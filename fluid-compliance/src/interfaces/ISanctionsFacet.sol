@@ -16,7 +16,7 @@ interface ISanctionsFacet {
     }
 
     event SanctionsMatchFound(address indexed entity, LibAppStorage.SanctionsList[] lists, bytes32 entityHash, uint256 timestamp);
-    event EntityScreened(address indexed entity, bytes32 identityHash, bool isMatch, uint256 matchScore);
+    event EntityScreened(address indexed entity, bytes32 identityHash, bool isMatch, uint256 matchScore, uint256 timestamp);
     event SanctionsListUpdated(LibAppStorage.SanctionsList indexed listType, bytes32 newRoot, uint256 entryCount, uint256 timestamp);
     event EntityCleared(address indexed entity, uint256 timestamp, address clearedBy);
 

@@ -18,6 +18,7 @@ interface IEmergencyFacet {
     function resumeSystem() external;
 
     /// @notice Check if system is currently paused
+    /// @return paused True if the system is currently paused
     function isSystemPaused() external view returns (bool paused);
 
     /// @notice Emergency freeze of a specific entity
@@ -28,5 +29,7 @@ interface IEmergencyFacet {
     function unfreezeEntity(address entity) external;
 
     /// @notice Check if an entity is frozen
+    /// @param entity Address of the entity to check
+    /// @return frozen True if the entity is currently frozen
     function isEntityFrozen(address entity) external view returns (bool frozen);
 }

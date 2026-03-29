@@ -9,7 +9,7 @@ import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 interface IFATCACRSFacet {
 
     event TaxClassificationUpdated(address indexed entity, uint8 fatcaStatus, uint8 crsType, uint256 timestamp);
-    event TaxFormStatusChanged(address indexed entity, bool onFile, uint256 expirationDate);
+    event TaxFormStatusChanged(address indexed entity, bool onFile, uint256 expirationDate, uint256 timestamp);
     event ReportingObligationTriggered(bytes32 indexed obligationId, address indexed entity, bytes32 indexed jurisdiction, uint256 amount);
 
     /// @notice Set or update the FATCA/CRS tax classification for an entity

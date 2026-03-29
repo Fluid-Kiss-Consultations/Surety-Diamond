@@ -15,7 +15,7 @@ contract EmergencyFacet {
 
     event EmergencyPause(address indexed initiator, uint256 timestamp);
     event EmergencyUnpause(address indexed initiator, uint256 timestamp);
-    event EmergencyWithdrawal(address indexed token, uint256 amount, address indexed recipient);
+    event EmergencyWithdrawal(address indexed token, uint256 amount, address indexed recipient, uint256 timestamp);
     event EmergencyUpgradeScheduled(bytes32 indexed upgradeId, uint256 executeAfter);
 
     // ============ Errors ============
@@ -84,7 +84,7 @@ contract EmergencyFacet {
         // ERC-20 transfer would be implemented via IERC20 in production
 
         _logEmergencyAction("EMERGENCY_WITHDRAWAL");
-        emit EmergencyWithdrawal(token, amount, recipient);
+        emit EmergencyWithdrawal(token, amount, recipient, block.timestamp);
     }
 
     /// @notice Schedule emergency upgrade with reduced timelock (minimum 24 hours)

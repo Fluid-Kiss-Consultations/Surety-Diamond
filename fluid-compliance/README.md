@@ -177,6 +177,9 @@ Key test files:
 | `test/EmergencyFacet.t.sol` | Pause/unpause, upgrade scheduling |
 | `test/Diamond.t.sol` | Loupe, timelock enforcement, ERC-165 |
 | `test/Integration.t.sol` | End-to-end: KYC → AML → Sanctions → Invoice → Factor → Audit |
+| `test/DeploySelectors.t.sol` | Validates all 77 selectors routed in diamond |
+| `test/fuzz/FuzzAMLFacet.t.sol` | AML risk scoring bounds and escalation |
+| `test/fuzz/FuzzInvoiceRegistryFacet.t.sol` | Invoice amount/rate bounds, payment transitions |
 
 ---
 

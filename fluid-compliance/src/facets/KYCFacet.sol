@@ -12,6 +12,10 @@ import {IKYCFacet} from "../interfaces/IKYCFacet.sol";
 contract KYCFacet is IKYCFacet {
     using LibAppStorage for LibAppStorage.AppStorage;
 
+    // ============ Constants ============
+
+    uint256 private constant KYC_VALIDITY_PERIOD = 365 days;
+
     // ============ Errors ============
 
     error KYCAlreadyInitiated();
@@ -90,7 +94,7 @@ contract KYCFacet is IKYCFacet {
         record.level = level;
         record.status = LibAppStorage.KYCStatus.APPROVED;
         record.verificationDate = block.timestamp;
-        record.expirationDate = block.timestamp + 365 days;
+        record.expirationDate = block.timestamp + KYC_VALIDITY_PERIOD;
         record.verifier = msg.sender;
         record.documentRoot = documentRoot;
         record.isPEP = isPEP;

@@ -64,7 +64,7 @@ contract SanctionsFacet is ISanctionsFacet {
             }
         }
 
-        emit EntityScreened(entity, identityHash, result.isMatch, result.matchScore);
+        emit EntityScreened(entity, identityHash, result.isMatch, result.matchScore, block.timestamp);
         return result;
     }
 

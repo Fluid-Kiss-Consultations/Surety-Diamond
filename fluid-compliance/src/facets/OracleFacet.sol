@@ -17,6 +17,7 @@ contract OracleFacet is IOracleFacet {
     // ============================================================
 
     uint256 private constant ORACLE_DATA_EXPIRY = 24 hours;
+    uint256 private constant ORACLE_REQUEST_EXPIRY = 1 hours;
     uint256 private constant MAX_ORACLES_PER_TYPE = 5;
 
     // ============================================================
@@ -151,7 +152,7 @@ contract OracleFacet is IOracleFacet {
             dataType: dataType,
             dataKey: dataKey,
             requestTimestamp: block.timestamp,
-            expirationTimestamp: block.timestamp + 1 hours,
+            expirationTimestamp: block.timestamp + ORACLE_REQUEST_EXPIRY,
             requester: msg.sender,
             fulfilled: false
         });

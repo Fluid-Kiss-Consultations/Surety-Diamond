@@ -65,7 +65,7 @@ contract JurisdictionFacet is IJurisdictionFacet {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         if (!s.jurisdictionConfigs[jurisdictionId].isActive) revert JurisdictionNotFound();
         s.entityJurisdictions[entity] = jurisdictionId;
-        emit EntityJurisdictionAssigned(entity, jurisdictionId);
+        emit EntityJurisdictionAssigned(entity, jurisdictionId, block.timestamp);
     }
 
     /// @inheritdoc IJurisdictionFacet
@@ -90,7 +90,8 @@ contract JurisdictionFacet is IJurisdictionFacet {
                 keccak256(abi.encodePacked(from, to, block.timestamp)),
                 sourceJurisdiction,
                 destJurisdiction,
-                false
+                false,
+                block.timestamp
             );
             revert TransactionNotPermitted();
         }
@@ -128,7 +129,8 @@ contract JurisdictionFacet is IJurisdictionFacet {
             keccak256(abi.encodePacked(from, to, block.timestamp)),
             sourceJurisdiction,
             destJurisdiction,
-            true
+            true,
+            block.timestamp
         );
 
         return assessment;
@@ -163,7 +165,8 @@ contract JurisdictionFacet is IJurisdictionFacet {
             keccak256(abi.encodePacked(jurisdiction1, jurisdiction2, reason)),
             jurisdiction1,
             jurisdiction2,
-            false
+            false,
+            block.timestamp
         );
     }
 

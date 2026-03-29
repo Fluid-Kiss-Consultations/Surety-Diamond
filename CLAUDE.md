@@ -48,7 +48,7 @@ Surety-Diamond/
 
 ### Diamond Standard (EIP-2535)
 
-All logic lives in **facets** — independent contracts whose functions are delegatecalled through a single `SuretyDiamond` proxy. Storage is shared via `LibAppStorage` using a deterministic storage slot.
+All logic lives in **facets** — independent contracts whose functions are delegatecalled through a single `SuretyDiamond` proxy. Storage is shared via `LibAppStorage` using a deterministic storage slot (`keccak256("surety.compliance.diamond.storage")`).
 
 ```
 User/Protocol
@@ -65,21 +65,25 @@ LibAppStorage (single storage slot)
 
 **Key principle:** Never add instance variables to facets. All state must go through `LibAppStorage.appStorage()`.
 
+### Design Rationale
+
+See `fluid-compliance/README.md` § "Why Diamond Standard" for the architectural rationale (upgradeability, storage efficiency, size limits, granular access control).
+
 ### Facets (11 implemented)
 
 | Facet | Responsibility |
 |-------|---------------|
-| `KYCFacet` | FATF-compliant KYC verification, document management, PEP detection |
+| `KYCFacet` | FATF-compliant KYC verification, Merkle document proofs, PEP detection |
 | `AMLFacet` | AML risk scoring (0–1000 scale), SAR filing, transaction monitoring |
 | `SanctionsFacet` | OFAC/UN/EU sanctions screening via Merkle proofs |
 | `InvoiceRegistryFacet` | Invoice registration, double-factoring prevention, factoring agreements |
 | `FATCACRSFacet` | FATCA/CRS tax compliance, withholding calculation |
 | `JurisdictionFacet` | Multi-jurisdiction regulatory routing |
 | `AuditFacet` | Hash-chained immutable audit trail |
-| `EmergencyFacet` | System pause/unpause, emergency withdrawal |
+| `EmergencyFacet` | System pause/unpause, timelocked emergency upgrade scheduling |
 | `OracleFacet` | Oracle registration, ECDSA-verified external data feeds |
 | `DiamondCutFacet` | Facet upgrades with 48-hour timelock |
-| `DiamondLoupeFacet` | Facet and function enumeration |
+| `DiamondLoupeFacet` | Facet and function enumeration, ERC-165 interface detection |
 
 ### Storage Layout
 
@@ -129,7 +133,7 @@ RPC_URL=<ethereum-rpc-endpoint>
 ETHERSCAN_API_KEY=<for-contract-verification>
 ```
 
-No `.env` or `.env.example` file exists yet — create one before deploying.
+See `fluid-compliance/.env.example` for required deployment variables. Copy to `.env` and fill in values before deploying.
 
 ---
 
@@ -200,6 +204,7 @@ The system targets these compliance frameworks:
 | USA | BSA, USA PATRIOT Act §312/§319, OFAC, FATCA |
 | EU | MiCA, 6th AML Directive (6AMLD), GDPR |
 | Global | FATF Recommendations, UN Security Council sanctions, Basel III/IV |
+| UK | Financial Sanctions (HMT) |
 
 **KYC Levels:** NONE → BASIC → STANDARD → ENHANCED → INSTITUTIONAL
 
