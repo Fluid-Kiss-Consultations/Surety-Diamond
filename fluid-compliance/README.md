@@ -130,7 +130,7 @@ Defined in `LibRoles.sol`:
 
 ```bash
 # Copy and fill in environment variables
-cp .env.example .env   # (create this file — see below)
+cp .env.example .env
 
 # Deploy to a local fork
 forge script script/Deploy.s.sol \
@@ -274,7 +274,6 @@ diamond.executeUpgrade(upgradeId);
 - Test coverage target is ≥90% per facet — run `forge coverage` to check current status
 - `DiamondInit.init` can only be called once; post-init role grants require an owner transaction via `LibRoles` internals or a dedicated admin facet
 - `JurisdictionFacet.blockJurisdictionOperation` currently only handles `FACTORING`; extend for other operation types as needed
-- Create `.env.example` with required deployment variables
 - Add fuzzing tests for risk scoring and invoice validation edge cases
 
 ---

@@ -218,13 +218,13 @@ As of 2026-03-28:
 - `LibRoles.sol` — role-based access control with `_ROLE` suffix convention
 - `foundry.toml` + `remappings.txt` — configured, `forge build` passes
 - `script/Deploy.s.sol` — deployment script
+- `.env.example` — deployment environment template
 - Test suite — all tests passing across 11 facets + integration suite (CI verified)
 - Security remediations — all 14 findings (2 CRITICAL, 4 HIGH, 3 MEDIUM, 4 LOW) resolved and merged
 - `fluid-compliance/README.md` — technical reference and API docs
 
 ### Remaining
-1. **`.env.example`** — create with required deployment variables
-2. **Fuzzing tests** — risk scoring and invoice validation edge cases
+1. **Fuzzing tests** — risk scoring and invoice validation edge cases
 3. **Deploy.s.sol selector verification** — verify selector arrays against `forge inspect` output before mainnet use
 4. **Stub function implementations** — `OracleFacet.getPendingRequests` (filter by dataType), `InvoiceRegistryFacet.getFactoringStatus` (return actual factor address), `AuditFacet.getAuditStats` (filter by eventType/period)
 5. **Unused parameter logic** — implement storage/logging for: `narrative` in `AMLFacet.fileSAR`, `paymentReference` in `InvoiceRegistryFacet.recordPayment`, `reason`/`clearanceReason` in `SanctionsFacet`
