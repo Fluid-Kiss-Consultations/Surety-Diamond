@@ -144,20 +144,25 @@ contract UpgradeManagerFacetTest is DiamondTestHelper {
     }
 
     function test_approveUpgrade_revertsAlreadyApproved() public {
-        vm.prank(upgradeMgr);
-        upgradeManager().proposeUpgrade(UPGRADE_ID, "Test upgrade", LAYOUT_HASH);
+    vm.prank(owner);
+    upgradeManager().setRequiredApprovals(2);
 
-        vm.prank(owner);
-        upgradeManager().setRequiredApprovals(2);
+    vm.prank(upgradeMgr);
+    upgradeManager().proposeUpgrade(UPGRADE_ID, "Test upgrade", LAYOUT_HASH);
 
-        vm.prank(upgradeMgr);
-        upgradeManager().proposeUpgrade(UPGRADE_ID, "Test upgrade", LAYOUT_HASH);
+    vm.prank(upgradeMgr);
+    upgradeManager().approveUpgrade(UPGRADE_ID);
 
-
-        vm.prank(upgradeMgr);
-        vm.expectRevert(abi.encodeWithSelector(IUpgradeManagerFacet.AlreadyApproved.selector, upgradeMgr, UPGRADE_ID));
-        upgradeManager().approveUpgrade(UPGRADE_ID);
-    }
+    vm.prank(upgradeMgr);
+    vm.expectRevert(
+        abi.encodeWithSelector(
+            IUpgradeManagerFacet.AlreadyApproved.selector,
+            upgradeMgr,
+            UPGRADE_ID
+        )
+    );
+    upgradeManager().approveUpgrade(UPGRADE_ID);
+}
 
     function test_approveUpgrade_revertsNotFound() public {
         vm.prank(upgradeMgr);
