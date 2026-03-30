@@ -33,6 +33,10 @@ library LibRoles {
     bytes32 internal constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
     bytes32 internal constant PAUSER_ROLE          = keccak256("PAUSER_ROLE");
 
+    // Upgrade & security roles
+    bytes32 internal constant UPGRADE_MANAGER_ROLE = keccak256("UPGRADE_MANAGER_ROLE");
+    bytes32 internal constant SECURITY_ADMIN_ROLE  = keccak256("SECURITY_ADMIN_ROLE");
+
     // ============ Events ============
 
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);

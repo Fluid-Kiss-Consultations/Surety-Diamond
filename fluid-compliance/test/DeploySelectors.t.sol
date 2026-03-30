@@ -15,6 +15,8 @@ import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
 import {IERC165} from "../src/interfaces/IERC165.sol";
 import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {EmergencyFacet} from "../src/facets/EmergencyFacet.sol";
+import {IUpgradeManagerFacet} from "../src/interfaces/IUpgradeManagerFacet.sol";
+import {ISecurityGuardFacet} from "../src/interfaces/ISecurityGuardFacet.sol";
 
 /// @notice Verifies that every interface selector is routed in the deployed diamond.
 contract DeploySelectorsTest is DiamondTestHelper {
@@ -120,6 +122,35 @@ contract DeploySelectorsTest is DiamondTestHelper {
         assertNotEq(l.facetAddress(IOracleFacet.getOracleAuthorizations.selector), address(0));
         assertNotEq(l.facetAddress(IOracleFacet.getPendingRequests.selector), address(0));
         assertNotEq(l.facetAddress(IOracleFacet.getOracleData.selector), address(0));
+
+        // UpgradeManager
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.registerStorageLayout.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.validateStorageLayout.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.getStorageLayout.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.proposeUpgrade.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.approveUpgrade.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.cancelUpgrade.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.getUpgradeProposal.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.setRequiredApprovals.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.getUpgradeHistory.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.recordUpgrade.selector), address(0));
+        assertNotEq(l.facetAddress(IUpgradeManagerFacet.getPreUpgradeSnapshot.selector), address(0));
+
+        // SecurityGuard
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.setRateLimit.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.removeRateLimit.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.checkRateLimit.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.recordActivity.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.setCircuitBreakerConfig.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.getCircuitBreakerStatus.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.registerThreatIndicator.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.deactivateThreatIndicator.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.getThreatIndicator.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.reportSecurityIncident.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.getSecurityIncidents.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.blockAddress.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.unblockAddress.selector), address(0));
+        assertNotEq(l.facetAddress(ISecurityGuardFacet.isAddressBlocked.selector), address(0));
     }
 
     function test_totalSelectorCount() public view {
@@ -128,7 +159,7 @@ contract DeploySelectorsTest is DiamondTestHelper {
         for (uint256 i = 0; i < allFacets.length; i++) {
             totalSelectors += allFacets[i].functionSelectors.length;
         }
-        // 3 + 5 + 7 + 6 + 9 + 9 + 8 + 9 + 9 + 4 + 8 = 77 selectors across 11 facets
-        assertEq(totalSelectors, 77);
+        // 3 + 5 + 7 + 6 + 9 + 9 + 8 + 9 + 9 + 4 + 8 + 11 + 14 = 102 selectors across 13 facets
+        assertEq(totalSelectors, 102);
     }
 }

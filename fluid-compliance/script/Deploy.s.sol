@@ -16,6 +16,8 @@ import {JurisdictionFacet} from "../src/facets/JurisdictionFacet.sol";
 import {AuditFacet} from "../src/facets/AuditFacet.sol";
 import {EmergencyFacet} from "../src/facets/EmergencyFacet.sol";
 import {OracleFacet} from "../src/facets/OracleFacet.sol";
+import {UpgradeManagerFacet} from "../src/facets/UpgradeManagerFacet.sol";
+import {SecurityGuardFacet} from "../src/facets/SecurityGuardFacet.sol";
 
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
 import {IKYCFacet} from "../src/interfaces/IKYCFacet.sol";
@@ -28,6 +30,8 @@ import {IAuditFacet} from "../src/interfaces/IAuditFacet.sol";
 import {IOracleFacet} from "../src/interfaces/IOracleFacet.sol";
 import {IDiamondLoupe} from "../src/interfaces/IDiamondLoupe.sol";
 import {IERC165} from "../src/interfaces/IERC165.sol";
+import {IUpgradeManagerFacet} from "../src/interfaces/IUpgradeManagerFacet.sol";
+import {ISecurityGuardFacet} from "../src/interfaces/ISecurityGuardFacet.sol";
 import {LibAppStorage} from "../src/libraries/LibAppStorage.sol";
 
 /// @title DeploySurety
@@ -61,6 +65,8 @@ contract DeploySurety is Script {
     AuditFacet            public auditFacet;
     EmergencyFacet        public emergencyFacet;
     OracleFacet           public oracleFacet;
+    UpgradeManagerFacet   public upgradeManagerFacet;
+    SecurityGuardFacet    public securityGuardFacet;
 
     // ============================================================
     // Entry point
@@ -98,6 +104,8 @@ contract DeploySurety is Script {
         auditFacet        = new AuditFacet();
         emergencyFacet    = new EmergencyFacet();
         oracleFacet       = new OracleFacet();
+        upgradeManagerFacet = new UpgradeManagerFacet();
+        securityGuardFacet  = new SecurityGuardFacet();
     }
 
     // ============================================================
@@ -113,19 +121,21 @@ contract DeploySurety is Script {
     // ============================================================
 
     function _cutAllFacets(address owner, address treasury) internal {
-        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](11);
+        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](13);
 
-        cuts[0]  = _makeCut(address(cutFacet),          _cutSelectors());
-        cuts[1]  = _makeCut(address(loupeFacet),         _loupeSelectors());
-        cuts[2]  = _makeCut(address(kycFacet),           _kycSelectors());
-        cuts[3]  = _makeCut(address(amlFacet),           _amlSelectors());
-        cuts[4]  = _makeCut(address(sanctionsFacet),     _sanctionsSelectors());
-        cuts[5]  = _makeCut(address(invoiceFacet),       _invoiceSelectors());
-        cuts[6]  = _makeCut(address(fatcaFacet),         _fatcaSelectors());
-        cuts[7]  = _makeCut(address(jurisdictionFacet),  _jurisdictionSelectors());
-        cuts[8]  = _makeCut(address(auditFacet),         _auditSelectors());
-        cuts[9]  = _makeCut(address(emergencyFacet),     _emergencySelectors());
-        cuts[10] = _makeCut(address(oracleFacet),        _oracleSelectors());
+        cuts[0]  = _makeCut(address(cutFacet),              _cutSelectors());
+        cuts[1]  = _makeCut(address(loupeFacet),             _loupeSelectors());
+        cuts[2]  = _makeCut(address(kycFacet),               _kycSelectors());
+        cuts[3]  = _makeCut(address(amlFacet),               _amlSelectors());
+        cuts[4]  = _makeCut(address(sanctionsFacet),         _sanctionsSelectors());
+        cuts[5]  = _makeCut(address(invoiceFacet),           _invoiceSelectors());
+        cuts[6]  = _makeCut(address(fatcaFacet),             _fatcaSelectors());
+        cuts[7]  = _makeCut(address(jurisdictionFacet),      _jurisdictionSelectors());
+        cuts[8]  = _makeCut(address(auditFacet),             _auditSelectors());
+        cuts[9]  = _makeCut(address(emergencyFacet),         _emergencySelectors());
+        cuts[10] = _makeCut(address(oracleFacet),            _oracleSelectors());
+        cuts[11] = _makeCut(address(upgradeManagerFacet),    _upgradeManagerSelectors());
+        cuts[12] = _makeCut(address(securityGuardFacet),     _securityGuardSelectors());
 
         bytes memory initData = abi.encodeCall(
             DiamondInit.init,
@@ -277,6 +287,39 @@ contract DeploySurety is Script {
         s[7] = IOracleFacet.getOracleData.selector;
     }
 
+    function _upgradeManagerSelectors() internal pure returns (bytes4[] memory s) {
+        s = new bytes4[](11);
+        s[0]  = IUpgradeManagerFacet.registerStorageLayout.selector;
+        s[1]  = IUpgradeManagerFacet.validateStorageLayout.selector;
+        s[2]  = IUpgradeManagerFacet.getStorageLayout.selector;
+        s[3]  = IUpgradeManagerFacet.proposeUpgrade.selector;
+        s[4]  = IUpgradeManagerFacet.approveUpgrade.selector;
+        s[5]  = IUpgradeManagerFacet.cancelUpgrade.selector;
+        s[6]  = IUpgradeManagerFacet.getUpgradeProposal.selector;
+        s[7]  = IUpgradeManagerFacet.setRequiredApprovals.selector;
+        s[8]  = IUpgradeManagerFacet.getUpgradeHistory.selector;
+        s[9]  = IUpgradeManagerFacet.recordUpgrade.selector;
+        s[10] = IUpgradeManagerFacet.getPreUpgradeSnapshot.selector;
+    }
+
+    function _securityGuardSelectors() internal pure returns (bytes4[] memory s) {
+        s = new bytes4[](14);
+        s[0]  = ISecurityGuardFacet.setRateLimit.selector;
+        s[1]  = ISecurityGuardFacet.removeRateLimit.selector;
+        s[2]  = ISecurityGuardFacet.checkRateLimit.selector;
+        s[3]  = ISecurityGuardFacet.recordActivity.selector;
+        s[4]  = ISecurityGuardFacet.setCircuitBreakerConfig.selector;
+        s[5]  = ISecurityGuardFacet.getCircuitBreakerStatus.selector;
+        s[6]  = ISecurityGuardFacet.registerThreatIndicator.selector;
+        s[7]  = ISecurityGuardFacet.deactivateThreatIndicator.selector;
+        s[8]  = ISecurityGuardFacet.getThreatIndicator.selector;
+        s[9]  = ISecurityGuardFacet.reportSecurityIncident.selector;
+        s[10] = ISecurityGuardFacet.getSecurityIncidents.selector;
+        s[11] = ISecurityGuardFacet.blockAddress.selector;
+        s[12] = ISecurityGuardFacet.unblockAddress.selector;
+        s[13] = ISecurityGuardFacet.isAddressBlocked.selector;
+    }
+
     // ============================================================
     // Logging
     // ============================================================
@@ -297,5 +340,7 @@ contract DeploySurety is Script {
         console.log("AuditFacet:       ", address(auditFacet));
         console.log("EmergencyFacet:   ", address(emergencyFacet));
         console.log("OracleFacet:      ", address(oracleFacet));
+        console.log("UpgradeManager:   ", address(upgradeManagerFacet));
+        console.log("SecurityGuard:    ", address(securityGuardFacet));
     }
 }
