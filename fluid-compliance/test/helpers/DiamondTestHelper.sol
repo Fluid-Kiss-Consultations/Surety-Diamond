@@ -16,6 +16,8 @@ import {JurisdictionFacet} from "../../src/facets/JurisdictionFacet.sol";
 import {AuditFacet} from "../../src/facets/AuditFacet.sol";
 import {EmergencyFacet} from "../../src/facets/EmergencyFacet.sol";
 import {OracleFacet} from "../../src/facets/OracleFacet.sol";
+import {UpgradeManagerFacet} from "../../src/facets/UpgradeManagerFacet.sol";
+import {SecurityGuardFacet} from "../../src/facets/SecurityGuardFacet.sol";
 
 import {IDiamondCut} from "../../src/interfaces/IDiamondCut.sol";
 import {IKYCFacet} from "../../src/interfaces/IKYCFacet.sol";
@@ -28,6 +30,8 @@ import {IAuditFacet} from "../../src/interfaces/IAuditFacet.sol";
 import {IOracleFacet} from "../../src/interfaces/IOracleFacet.sol";
 import {IDiamondLoupe} from "../../src/interfaces/IDiamondLoupe.sol";
 import {IERC165} from "../../src/interfaces/IERC165.sol";
+import {IUpgradeManagerFacet} from "../../src/interfaces/IUpgradeManagerFacet.sol";
+import {ISecurityGuardFacet} from "../../src/interfaces/ISecurityGuardFacet.sol";
 import {LibAppStorage} from "../../src/libraries/LibAppStorage.sol";
 import {LibRoles} from "../../src/libraries/LibRoles.sol";
 
@@ -51,6 +55,8 @@ abstract contract DiamondTestHelper is Test {
     address internal auditor  = makeAddr("auditor");
     address internal oracle   = makeAddr("oracle");
     address internal pauser   = makeAddr("pauser");
+    address internal upgradeMgr   = makeAddr("upgradeManager");
+    address internal securityAdmin = makeAddr("securityAdmin");
 
     // ============================================================
     // Diamond proxy address (cast to each interface as needed)
@@ -79,6 +85,8 @@ abstract contract DiamondTestHelper is Test {
     function jurisdiction() internal view returns (IJurisdictionFacet)    { return IJurisdictionFacet(diamond); }
     function audit()        internal view returns (IAuditFacet)           { return IAuditFacet(diamond); }
     function loupe()        internal view returns (IDiamondLoupe)         { return IDiamondLoupe(diamond); }
+    function upgradeManager() internal view returns (IUpgradeManagerFacet) { return IUpgradeManagerFacet(diamond); }
+    function securityGuard()  internal view returns (ISecurityGuardFacet)  { return ISecurityGuardFacet(diamond); }
 
     // ============================================================
     // Internal: full diamond deployment
@@ -97,21 +105,25 @@ abstract contract DiamondTestHelper is Test {
         AuditFacet            auditFacet        = new AuditFacet();
         EmergencyFacet        emergencyFacet    = new EmergencyFacet();
         OracleFacet           oracleFacet       = new OracleFacet();
+        UpgradeManagerFacet   upgradeManagerFacet = new UpgradeManagerFacet();
+        SecurityGuardFacet    securityGuardFacet  = new SecurityGuardFacet();
         DiamondInit           diamondInit       = new DiamondInit();
 
         // Build FacetCut array
-        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](11);
-        cuts[0]  = _cut(address(cutFacet),          _cutSelectors());
-        cuts[1]  = _cut(address(loupeFacet),         _loupeSelectors());
-        cuts[2]  = _cut(address(kycFacet),           _kycSelectors());
-        cuts[3]  = _cut(address(amlFacet),           _amlSelectors());
-        cuts[4]  = _cut(address(sanctionsFacet),     _sanctionsSelectors());
-        cuts[5]  = _cut(address(invoiceFacet),       _invoiceSelectors());
-        cuts[6]  = _cut(address(fatcaFacet),         _fatcaSelectors());
-        cuts[7]  = _cut(address(jurisdictionFacet),  _jurisdictionSelectors());
-        cuts[8]  = _cut(address(auditFacet),         _auditSelectors());
-        cuts[9]  = _cut(address(emergencyFacet),     _emergencySelectors());
-        cuts[10] = _cut(address(oracleFacet),        _oracleSelectors());
+        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](13);
+        cuts[0]  = _cut(address(cutFacet),              _cutSelectors());
+        cuts[1]  = _cut(address(loupeFacet),             _loupeSelectors());
+        cuts[2]  = _cut(address(kycFacet),               _kycSelectors());
+        cuts[3]  = _cut(address(amlFacet),               _amlSelectors());
+        cuts[4]  = _cut(address(sanctionsFacet),         _sanctionsSelectors());
+        cuts[5]  = _cut(address(invoiceFacet),           _invoiceSelectors());
+        cuts[6]  = _cut(address(fatcaFacet),             _fatcaSelectors());
+        cuts[7]  = _cut(address(jurisdictionFacet),      _jurisdictionSelectors());
+        cuts[8]  = _cut(address(auditFacet),             _auditSelectors());
+        cuts[9]  = _cut(address(emergencyFacet),         _emergencySelectors());
+        cuts[10] = _cut(address(oracleFacet),            _oracleSelectors());
+        cuts[11] = _cut(address(upgradeManagerFacet),    _upgradeManagerSelectors());
+        cuts[12] = _cut(address(securityGuardFacet),     _securityGuardSelectors());
 
         bytes memory initData = abi.encodeCall(
             DiamondInit.init,
@@ -158,6 +170,8 @@ abstract contract DiamondTestHelper is Test {
         _grantRole(LibRoles.ORACLE_ROLE,              oracle);
         _grantRole(LibRoles.PAUSER_ROLE,              pauser);
         _grantRole(keccak256("TAX_OFFICER_ROLE"),     officer);
+        _grantRole(LibRoles.UPGRADE_MANAGER_ROLE,    upgradeMgr);
+        _grantRole(LibRoles.SECURITY_ADMIN_ROLE,     securityAdmin);
     }
 
     /// @dev Writes to roleMembers[role][account] = true via vm.store
@@ -306,6 +320,39 @@ abstract contract DiamondTestHelper is Test {
         s[5] = IOracleFacet.getOracleAuthorizations.selector;
         s[6] = IOracleFacet.getPendingRequests.selector;
         s[7] = IOracleFacet.getOracleData.selector;
+    }
+
+    function _upgradeManagerSelectors() internal pure returns (bytes4[] memory s) {
+        s = new bytes4[](11);
+        s[0]  = IUpgradeManagerFacet.registerStorageLayout.selector;
+        s[1]  = IUpgradeManagerFacet.validateStorageLayout.selector;
+        s[2]  = IUpgradeManagerFacet.getStorageLayout.selector;
+        s[3]  = IUpgradeManagerFacet.proposeUpgrade.selector;
+        s[4]  = IUpgradeManagerFacet.approveUpgrade.selector;
+        s[5]  = IUpgradeManagerFacet.cancelUpgrade.selector;
+        s[6]  = IUpgradeManagerFacet.getUpgradeProposal.selector;
+        s[7]  = IUpgradeManagerFacet.setRequiredApprovals.selector;
+        s[8]  = IUpgradeManagerFacet.getUpgradeHistory.selector;
+        s[9]  = IUpgradeManagerFacet.recordUpgrade.selector;
+        s[10] = IUpgradeManagerFacet.getPreUpgradeSnapshot.selector;
+    }
+
+    function _securityGuardSelectors() internal pure returns (bytes4[] memory s) {
+        s = new bytes4[](14);
+        s[0]  = ISecurityGuardFacet.setRateLimit.selector;
+        s[1]  = ISecurityGuardFacet.removeRateLimit.selector;
+        s[2]  = ISecurityGuardFacet.checkRateLimit.selector;
+        s[3]  = ISecurityGuardFacet.recordActivity.selector;
+        s[4]  = ISecurityGuardFacet.setCircuitBreakerConfig.selector;
+        s[5]  = ISecurityGuardFacet.getCircuitBreakerStatus.selector;
+        s[6]  = ISecurityGuardFacet.registerThreatIndicator.selector;
+        s[7]  = ISecurityGuardFacet.deactivateThreatIndicator.selector;
+        s[8]  = ISecurityGuardFacet.getThreatIndicator.selector;
+        s[9]  = ISecurityGuardFacet.reportSecurityIncident.selector;
+        s[10] = ISecurityGuardFacet.getSecurityIncidents.selector;
+        s[11] = ISecurityGuardFacet.blockAddress.selector;
+        s[12] = ISecurityGuardFacet.unblockAddress.selector;
+        s[13] = ISecurityGuardFacet.isAddressBlocked.selector;
     }
 
     // ============================================================

@@ -329,6 +329,116 @@ library LibAppStorage {
     }
 
     // ============================================================
+    // Upgrade Manager
+    // ============================================================
+
+    /// @notice Upgrade proposal lifecycle status
+    enum UpgradeStatus {
+        PROPOSED,     // 0: Awaiting approvals
+        APPROVED,     // 1: Sufficient approvals received
+        EXECUTED,     // 2: Upgrade applied
+        CANCELLED,    // 3: Cancelled by proposer or admin
+        ROLLED_BACK   // 4: Reverted to previous state
+    }
+
+    /// @notice Storage layout descriptor for on-chain introspection
+    struct StorageSlotDescriptor {
+        uint256 slot;       // Storage slot offset
+        uint256 size;       // Size in bytes
+        bytes32 name;       // Field name hash
+        bytes32 typeHash;   // Type identifier hash
+    }
+
+    /// @notice Snapshot of facet state before an upgrade (for rollback)
+    struct FacetSnapshot {
+        address facetAddress;
+        bytes4[] selectors;
+    }
+
+    /// @notice Upgrade proposal with multi-sig approval tracking
+    struct UpgradeProposal {
+        bytes32 upgradeId;
+        address proposer;
+        uint256 proposedAt;
+        uint256 approvalsRequired;
+        uint256 approvalsReceived;
+        mapping(address => bool) approvals;
+        UpgradeStatus status;
+        string description;
+        bytes32 storageLayoutHash;
+    }
+
+    /// @notice Completed upgrade record (history)
+    struct UpgradeRecord {
+        bytes32 upgradeId;
+        address executor;
+        uint256 executedAt;
+        uint256 facetsChanged;
+        uint256 selectorsAdded;
+        uint256 selectorsReplaced;
+        uint256 selectorsRemoved;
+        bytes32 previousLayoutHash;
+        bytes32 newLayoutHash;
+    }
+
+    // ============================================================
+    // Security Guard
+    // ============================================================
+
+    /// @notice Threat severity levels
+    enum ThreatLevel {
+        LOW,      // 0: Informational
+        MEDIUM,   // 1: Warrants monitoring
+        HIGH,     // 2: Requires intervention
+        CRITICAL  // 3: Immediate action needed
+    }
+
+    /// @notice Actions taken in response to security events
+    enum SecurityAction {
+        RATE_LIMIT,     // 0: Rate limit applied
+        CIRCUIT_BREAK,  // 1: Circuit breaker triggered
+        ALERT,          // 2: Alert raised
+        BLOCK           // 3: Address blocked
+    }
+
+    /// @notice Rate limit configuration per function selector
+    struct RateLimitConfig {
+        uint256 maxCalls;       // Max calls allowed in window
+        uint256 windowSeconds;  // Time window duration
+        bool enabled;
+    }
+
+    /// @notice Per-address activity tracking for rate limiting
+    struct ActivityTracker {
+        uint256 callCount;
+        uint256 windowStart;
+        uint256 lastActivity;
+        uint256 totalLifetimeCalls;
+    }
+
+    /// @notice Known threat indicator
+    struct ThreatIndicator {
+        bytes32 indicatorId;
+        ThreatLevel level;
+        bytes32 indicatorType;
+        bytes32 description;
+        uint256 createdAt;
+        bool active;
+    }
+
+    /// @notice Security incident record
+    struct SecurityIncident {
+        bytes32 incidentId;
+        ThreatLevel level;
+        address subject;
+        bytes32 indicatorType;
+        bytes32 details;
+        uint256 timestamp;
+        SecurityAction actionTaken;
+        address reportedBy;
+    }
+
+    // ============================================================
     // Main Storage Struct
     // ============================================================
 
@@ -426,6 +536,28 @@ library LibAppStorage {
 
         // ===== Audit Per-Type Tracking =====
         mapping(uint8 => bytes32[]) auditEntryIdsByType;
+
+        // ===== Upgrade Manager Storage =====
+        mapping(address => StorageSlotDescriptor[]) facetStorageLayouts;
+        mapping(bytes32 => UpgradeProposal) upgradeProposals;
+        bytes32[] upgradeProposalIds;
+        UpgradeRecord[] upgradeHistory;
+        mapping(bytes32 => FacetSnapshot[]) preUpgradeSnapshots;
+        uint256 requiredApprovals;
+        bytes32 currentStorageLayoutHash;
+
+        // ===== Security Guard Storage =====
+        mapping(bytes4 => RateLimitConfig) selectorRateLimits;
+        mapping(address => mapping(bytes4 => ActivityTracker)) addressActivity;
+        mapping(bytes32 => ThreatIndicator) threatIndicators;
+        bytes32[] threatIndicatorIds;
+        SecurityIncident[] securityIncidents;
+        mapping(address => uint256) securityIncidentCount;
+        uint256 circuitBreakerThreshold;
+        uint256 circuitBreakerWindow;
+        uint256 circuitBreakerIncidentCount;
+        uint256 circuitBreakerWindowStart;
+        mapping(address => bool) blockedAddresses;
     }
 
     // ============================================================
