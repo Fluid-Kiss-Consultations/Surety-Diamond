@@ -151,7 +151,8 @@ contract UpgradeManagerFacetTest is DiamondTestHelper {
         upgradeManager().setRequiredApprovals(2);
 
         vm.prank(upgradeMgr);
-        upgradeManager().approveUpgrade(UPGRADE_ID);
+        upgradeManager().proposeUpgrade(UPGRADE_ID, "Test upgrade", LAYOUT_HASH);
+
 
         vm.prank(upgradeMgr);
         vm.expectRevert(abi.encodeWithSelector(IUpgradeManagerFacet.AlreadyApproved.selector, upgradeMgr, UPGRADE_ID));
