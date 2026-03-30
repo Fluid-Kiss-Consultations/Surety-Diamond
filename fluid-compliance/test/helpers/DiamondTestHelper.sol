@@ -36,7 +36,7 @@ import {LibAppStorage} from "../../src/libraries/LibAppStorage.sol";
 import {LibRoles} from "../../src/libraries/LibRoles.sol";
 
 /// @notice Shared base for all Surety diamond tests.
-///         Deploys the full diamond with all 11 facets and sets up test roles.
+///         Deploys the full diamond with all 13 facets and sets up test roles.
 abstract contract DiamondTestHelper is Test {
 
     // ============================================================

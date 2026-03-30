@@ -35,7 +35,7 @@ import {ISecurityGuardFacet} from "../src/interfaces/ISecurityGuardFacet.sol";
 import {LibAppStorage} from "../src/libraries/LibAppStorage.sol";
 
 /// @title DeploySurety
-/// @notice Deploys the full Surety compliance diamond with all 10 facets
+/// @notice Deploys the full Surety compliance diamond with all 13 facets
 /// @dev Run with:
 ///   forge script script/Deploy.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 contract DeploySurety is Script {

@@ -127,6 +127,7 @@ Defined in `LibRoles.sol`:
 | `FACTOR_ROLE` | Create factoring agreements |
 | `SELLER_ROLE` | Register invoices |
 | `BUYER_ROLE` | Verify invoices |
+| `TAX_OFFICER_ROLE` | FATCA/CRS classification, withholding, reporting |
 | `EMERGENCY_ADMIN_ROLE` | Unpause system, schedule emergency upgrades |
 | `PAUSER_ROLE` | Trigger emergency pause |
 | `UPGRADE_MANAGER_ROLE` | Propose/approve upgrades, register storage layouts |
@@ -209,9 +210,22 @@ Key test files:
 
 ## Post-Deployment Configuration
 
+### Bootstrap Roles
+
+`DiamondInit.init()` automatically grants three roles to the owner during deployment:
+
+| Role | Granted To |
+|------|-----------|
+| `DEFAULT_ADMIN_ROLE` | Owner |
+| `EMERGENCY_ADMIN_ROLE` | Owner |
+| `COMPLIANCE_OFFICER_ROLE` | Owner |
+
+All other roles (KYC_VERIFIER_ROLE, AML_ANALYST_ROLE, SANCTIONS_MANAGER_ROLE, etc.) must be granted post-deployment by the owner using the admin role hierarchy. Since `LibRoles.grantRole` is an internal library function, role grants require either a dedicated admin facet or direct storage writes.
+
+### Configuration Steps
+
 ```solidity
-// 1. Grant initial roles
-diamond.grantRole(COMPLIANCE_OFFICER_ROLE, complianceOfficer);
+// 1. Grant operational roles (requires a role-admin facet or direct storage access)
 diamond.grantRole(KYC_VERIFIER_ROLE, kycVerifier);
 diamond.grantRole(AML_ANALYST_ROLE, amlAnalyst);
 
@@ -315,9 +329,8 @@ Pre-upgrade snapshots are automatically captured when proposals are created, ena
 
 - `script/Deploy.s.sol` needs selector array verification against `forge inspect` output before mainnet use
 - Test coverage target is ≥90% per facet — run `forge coverage` to check current status
-- `DiamondInit.init` can only be called once; post-init role grants require an owner transaction via `LibRoles` internals or a dedicated admin facet
+- `DiamondInit.init` can only be called once; post-init role grants require a dedicated admin facet (not yet implemented) — `LibRoles.grantRole` is internal and not callable externally
 - `JurisdictionFacet.blockJurisdictionOperation` currently only handles `FACTORING`; extend for other operation types as needed
-- Add fuzzing tests for risk scoring and invoice validation edge cases
 - UpgradeManagerFacet storage layout registration is manual; consider automated layout extraction from `forge inspect` output
 - SecurityGuardFacet `getSecurityIncidents` iterates all incidents linearly; add indexed pagination for production deployments with high incident volume
 - Consider integrating `SecurityGuardFacet.recordActivity()` calls into existing facet modifiers for transparent rate limiting
