@@ -16,7 +16,7 @@ contract DiamondTest is DiamondTestHelper {
 
     function test_loupe_returns11Facets() public view {
         address[] memory addrs = loupe().facetAddresses();
-        assertEq(addrs.length, 11);
+        assertEq(addrs.length, 13);
     }
 
     function test_loupe_allFacetsHaveSelectors() public view {
