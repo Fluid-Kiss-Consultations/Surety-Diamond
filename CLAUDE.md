@@ -19,8 +19,8 @@ Surety-Diamond/
 ├── fluid-compliance/           # Main Solidity project (Foundry)
 │   ├── src/
 │   │   ├── diamond/            # EIP-2535 Diamond proxy and init
-│   │   ├── facets/             # 11 compliance facet contracts
-│   │   ├── interfaces/         # 12 Solidity interfaces (I*.sol)
+│   │   ├── facets/             # 13 facet contracts (compliance + infrastructure)
+│   │   ├── interfaces/         # 14 Solidity interfaces (I*.sol)
 │   │   └── libraries/          # Shared storage and utilities
 │   ├── test/                   # Foundry test suite
 │   ├── script/                 # Deployment scripts
@@ -69,7 +69,7 @@ LibAppStorage (single storage slot)
 
 See `fluid-compliance/README.md` § "Why Diamond Standard" for the architectural rationale (upgradeability, storage efficiency, size limits, granular access control).
 
-### Facets (11 implemented)
+### Facets (13 implemented)
 
 | Facet | Responsibility |
 |-------|---------------|
@@ -82,6 +82,8 @@ See `fluid-compliance/README.md` § "Why Diamond Standard" for the architectural
 | `AuditFacet` | Hash-chained immutable audit trail |
 | `EmergencyFacet` | System pause/unpause, timelocked emergency upgrade scheduling |
 | `OracleFacet` | Oracle registration, ECDSA-verified external data feeds |
+| `UpgradeManagerFacet` | Storage layout validation, multi-sig upgrade proposals, upgrade history, rollback snapshots |
+| `SecurityGuardFacet` | Rate limiting, circuit breaker auto-pause, threat registry, incident reporting, address blocking |
 | `DiamondCutFacet` | Facet upgrades with 48-hour timelock |
 | `DiamondLoupeFacet` | Facet and function enumeration, ERC-165 interface detection |
 
@@ -96,6 +98,8 @@ See `fluid-compliance/README.md` § "Why Diamond Standard" for the architectural
 - FATCA/CRS classifications
 - Audit trail (hash-chained)
 - Role assignments
+- Upgrade manager (storage layouts, proposals, history, snapshots)
+- Security guard (rate limits, circuit breaker, threat indicators, incidents, blocked addresses)
 
 ---
 
@@ -170,6 +174,7 @@ Role constants defined in `LibRoles.sol`:
 - `ORACLE_ROLE`, `FACTOR_ROLE`, `SELLER_ROLE`, `BUYER_ROLE`
 - `TAX_OFFICER_ROLE`, `AUDITOR_ROLE`
 - `EMERGENCY_ADMIN_ROLE`, `PAUSER_ROLE`
+- `UPGRADE_MANAGER_ROLE`, `SECURITY_ADMIN_ROLE`
 
 ### Storage Access
 
@@ -214,24 +219,26 @@ The system targets these compliance frameworks:
 
 ## Current State
 
-As of 2026-03-29:
+As of 2026-03-30:
 
 ### Completed
-- All 11 facets implemented and wired into `SuretyDiamond` constructor via `DiamondTestHelper`
+- All 13 facets implemented and wired into `SuretyDiamond` constructor via `DiamondTestHelper`
 - `LibDiamond.sol` — full EIP-2535 implementation
-- `LibAppStorage.sol` — shared storage struct (production-ready)
-- `LibRoles.sol` — role-based access control with `_ROLE` suffix convention
+- `LibAppStorage.sol` — shared storage struct with 8 domain sections + upgrade manager + security guard storage
+- `LibRoles.sol` — role-based access control with 15 role constants (`_ROLE` suffix convention)
 - `foundry.toml` + `remappings.txt` — configured, `forge build` passes
-- `script/Deploy.s.sol` — deployment script
+- `script/Deploy.s.sol` — deployment script (13 facets, 102 selectors)
 - `.env.example` — deployment environment template
-- Test suite — all tests passing across 11 facets + integration suite (CI verified)
+- Test suite — all tests passing across 13 facets + integration suite (CI verified)
 - Security remediations — all 14 findings (2 CRITICAL, 4 HIGH, 3 MEDIUM, 4 LOW) resolved and merged
 - `fluid-compliance/README.md` — technical reference and API docs
 - Fuzzing tests — `test/fuzz/FuzzAMLFacet.t.sol` and `test/fuzz/FuzzInvoiceRegistryFacet.t.sol`
-- Deploy.s.sol selector verification — `test/DeploySelectors.t.sol` validates all 77 selectors are routed
+- Deploy.s.sol selector verification — `test/DeploySelectors.t.sol` validates all 102 selectors are routed
 - Stub function implementations — `getPendingRequests` (dataType filtering), `getFactoringStatus` (actual factor address), `getAuditStats` (eventType/period filtering)
 - Unused parameter logic — `narrative` stored in `sarNarratives`, `paymentReference` stored and emitted via `PaymentRecorded`, `reason`/`clearanceReason` stored in `sanctionsClearanceReasons`
 - SanctionsFacet event enrichment — `addToSanctionsList` and `removeFromSanctionsList` now accept `address entity` parameter, eliminating `address(0)` in events
+- **UpgradeManagerFacet** — storage layout registration/validation, multi-sig upgrade proposals, upgrade history tracking, pre-upgrade facet snapshots for rollback reference (11 selectors)
+- **SecurityGuardFacet** — per-selector rate limiting with sliding windows, circuit breaker auto-pause on incident threshold, threat indicator registry, security incident reporting with auto-block on CRITICAL, address blocking (14 selectors)
 
 ### Remaining
 - None — all planned items complete. Ready for mainnet deployment preparation.

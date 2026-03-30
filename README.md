@@ -26,6 +26,8 @@ Surety is the infrastructure layer: a modular, upgradeable EIP-2535 Diamond prox
 | `AuditFacet` | Hash-chained immutable audit trail with typed compliance events |
 | `EmergencyFacet` | System pause/unpause, timelocked emergency upgrade scheduling |
 | `OracleFacet` | Oracle registration, ECDSA-verified external data feeds |
+| `UpgradeManagerFacet` | Storage layout validation, multi-sig upgrade proposals, upgrade history, rollback snapshots |
+| `SecurityGuardFacet` | Rate limiting, circuit breaker auto-pause, threat registry, incident reporting, address blocking |
 | `DiamondCutFacet` | Facet upgrades with 48-hour timelock (schedule → wait → execute) |
 | `DiamondLoupeFacet` | EIP-2535 introspection, ERC-165 interface detection |
 
@@ -49,6 +51,8 @@ SuretyDiamond  (EIP-2535 proxy)
       ├─── AuditFacet
       ├─── EmergencyFacet
       ├─── OracleFacet
+      ├─── UpgradeManagerFacet  (storage validation, multi-sig, rollback)
+      ├─── SecurityGuardFacet   (rate limiting, circuit breaker, threats)
       ├─── DiamondCutFacet      (upgrades, 48-hour timelock)
       └─── DiamondLoupeFacet    (introspection)
                 │

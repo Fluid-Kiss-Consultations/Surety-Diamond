@@ -48,6 +48,8 @@ SuretyDiamond (EIP-2535 proxy)
       ├─── AuditFacet
       ├─── EmergencyFacet
       ├─── OracleFacet
+      ├─── UpgradeManagerFacet (storage validation, multi-sig, rollback)
+      ├─── SecurityGuardFacet  (rate limiting, circuit breaker, threats)
       ├─── DiamondCutFacet   (upgrades, 48-hour timelock)
       └─── DiamondLoupeFacet (EIP-2535 introspection)
               │
@@ -66,7 +68,7 @@ src/
 ├── diamond/
 │   ├── SuretyDiamond.sol       EIP-2535 proxy with 48-hour upgrade timelock
 │   └── DiamondInit.sol         One-time initializer (owner, treasury, roles)
-├── facets/                     11 facets (9 compliance + 1 oracle + 1 diamond management)
+├── facets/                     13 facets (9 compliance + 2 infrastructure + 1 oracle + 1 diamond)
 │   ├── KYCFacet.sol            FATF-compliant KYC, document Merkle proofs, PEP flag
 │   ├── AMLFacet.sol            Risk scoring (0-1000), SAR filing, entity profiling
 │   ├── SanctionsFacet.sol      OFAC/UN/EU Merkle-tree screening
@@ -76,9 +78,11 @@ src/
 │   ├── AuditFacet.sol          Hash-chained immutable audit trail
 │   ├── EmergencyFacet.sol      Pause/unpause, emergency upgrade scheduling
 │   ├── OracleFacet.sol         Oracle registration, ECDSA-verified data feeds
+│   ├── UpgradeManagerFacet.sol Storage layout validation, multi-sig proposals, rollback
+│   ├── SecurityGuardFacet.sol  Rate limiting, circuit breaker, threat registry
 │   ├── DiamondCutFacet.sol     Scheduled upgrades (schedule → wait 48h → execute)
 │   └── DiamondLoupeFacet.sol   EIP-2535 loupe + ERC-165
-├── interfaces/                 12 Solidity interfaces (I*.sol)
+├── interfaces/                 14 Solidity interfaces (I*.sol)
 └── libraries/
     ├── LibAppStorage.sol       Shared storage: all structs, enums, AppStorage struct
     ├── LibDiamond.sol          EIP-2535 mechanics: selector routing, cut/add/remove
@@ -100,6 +104,8 @@ src/
 | `AuditFacet` | `logAudit`, `getAuditEntry`, `getEntityAuditTrail`, `verifyAuditChain` | `AUDITOR_ROLE` |
 | `EmergencyFacet` | `emergencyPause`, `emergencyUnpause`, `scheduleEmergencyUpgrade` | `PAUSER_ROLE` / `EMERGENCY_ADMIN_ROLE` |
 | `OracleFacet` | `registerOracle`, `submitOracleUpdate`, `requestOracleData` | `DEFAULT_ADMIN_ROLE` / `ORACLE_ROLE` |
+| `UpgradeManagerFacet` | `registerStorageLayout`, `proposeUpgrade`, `approveUpgrade`, `recordUpgrade` | `UPGRADE_MANAGER_ROLE` |
+| `SecurityGuardFacet` | `setRateLimit`, `reportSecurityIncident`, `blockAddress`, `setCircuitBreakerConfig` | `SECURITY_ADMIN_ROLE` |
 | `DiamondCutFacet` | `scheduleDiamondCut`, `executeDiamondCut`, `diamondCut` | Contract owner |
 | `DiamondLoupeFacet` | `facets`, `facetAddresses`, `supportsInterface` | — (view only) |
 
@@ -123,6 +129,8 @@ Defined in `LibRoles.sol`:
 | `BUYER_ROLE` | Verify invoices |
 | `EMERGENCY_ADMIN_ROLE` | Unpause system, schedule emergency upgrades |
 | `PAUSER_ROLE` | Trigger emergency pause |
+| `UPGRADE_MANAGER_ROLE` | Propose/approve upgrades, register storage layouts |
+| `SECURITY_ADMIN_ROLE` | Rate limiting, threat indicators, incident reporting |
 
 ---
 
@@ -175,9 +183,11 @@ Key test files:
 | `test/AuditFacet.t.sol` | Hash-chain integrity, typed event guards |
 | `test/OracleFacet.t.sol` | Oracle registration, ECDSA signature verification |
 | `test/EmergencyFacet.t.sol` | Pause/unpause, upgrade scheduling |
+| `test/UpgradeManagerFacet.t.sol` | Storage layout, multi-sig proposals, upgrade history |
+| `test/SecurityGuardFacet.t.sol` | Rate limiting, circuit breaker, threat registry, blocking |
 | `test/Diamond.t.sol` | Loupe, timelock enforcement, ERC-165 |
 | `test/Integration.t.sol` | End-to-end: KYC → AML → Sanctions → Invoice → Factor → Audit |
-| `test/DeploySelectors.t.sol` | Validates all 77 selectors routed in diamond |
+| `test/DeploySelectors.t.sol` | Validates all 102 selectors routed in diamond |
 | `test/fuzz/FuzzAMLFacet.t.sol` | AML risk scoring bounds and escalation |
 | `test/fuzz/FuzzInvoiceRegistryFacet.t.sol` | Invoice amount/rate bounds, payment transitions |
 
@@ -214,16 +224,29 @@ diamond.registerOracle(chainlinkOracle, [SANCTIONS_LIST, EXCHANGE_RATE]);
 
 // 4. Set thresholds
 diamond.setReportingThreshold(10000 * 1e18); // $10,000
+
+// 5. Configure upgrade governance (UpgradeManagerFacet)
+diamond.setRequiredApprovals(2); // Require 2 UPGRADE_MANAGER_ROLE holders to approve
+
+// 6. Configure security (SecurityGuardFacet)
+diamond.setCircuitBreakerConfig(5, 1 hours); // Auto-pause after 5 incidents/hour
+diamond.setRateLimit(KYCFacet.initiateKYC.selector, 100, 1 hours); // 100 KYC/hr max
 ```
 
 ---
 
 ## Upgrade Procedures
 
-All facet upgrades follow a three-step timelocked process:
+All facet upgrades follow a timelocked, multi-sig governance process:
 
 ```solidity
-// 1. Prepare facet cut
+// 1. Register storage layout for the new facet (UpgradeManagerFacet)
+StorageSlotDescriptor[] memory layout = new StorageSlotDescriptor[](2);
+layout[0] = StorageSlotDescriptor(0, 32, keccak256("field1"), keccak256("bytes32"));
+layout[1] = StorageSlotDescriptor(32, 32, keccak256("field2"), keccak256("uint256"));
+diamond.registerStorageLayout(newFacetAddress, layout);
+
+// 2. Prepare facet cut
 FacetCut[] memory cut = new FacetCut[](1);
 cut[0] = FacetCut({
     facetAddress: newFacetAddress,
@@ -231,12 +254,21 @@ cut[0] = FacetCut({
     functionSelectors: selectors
 });
 
-// 2. Schedule upgrade (48-hour timelock)
-diamond.scheduleUpgrade(cut, initAddress, initData);
+// 3. Schedule upgrade (48-hour timelock via DiamondCutFacet)
+bytes32 upgradeId = diamond.scheduleDiamondCut(cut, initAddress, initData, 48 hours);
 
-// 3. Execute after timelock expires
-diamond.executeUpgrade(upgradeId);
+// 4. Propose and collect multi-sig approvals (UpgradeManagerFacet)
+diamond.proposeUpgrade(upgradeId, "Upgrade description", storageLayoutHash);
+diamond.approveUpgrade(upgradeId); // Each UPGRADE_MANAGER_ROLE holder approves
+
+// 5. Execute after timelock expires
+diamond.executeDiamondCut(upgradeId);
+
+// 6. Record upgrade in history (UpgradeManagerFacet)
+diamond.recordUpgrade(upgradeId, facetsChanged, added, replaced, removed);
 ```
+
+Pre-upgrade snapshots are automatically captured when proposals are created, enabling rollback reference via `getPreUpgradeSnapshot(upgradeId)`.
 
 ---
 
@@ -253,6 +285,8 @@ diamond.executeUpgrade(upgradeId);
 | `SANCTIONS_MANAGER_ROLE` | Sanctions list management | HIGH |
 | `ORACLE_ROLE` | External data updates | MEDIUM |
 | `EMERGENCY_ADMIN_ROLE` | System pause, emergency withdraw | CRITICAL |
+| `UPGRADE_MANAGER_ROLE` | Propose/approve upgrades, storage validation | HIGH |
+| `SECURITY_ADMIN_ROLE` | Rate limiting, threat management, incident response | HIGH |
 
 ### Security Features
 
@@ -261,13 +295,19 @@ diamond.executeUpgrade(upgradeId);
 3. **Custom Errors** — Gas-efficient error handling
 4. **Pausability** — Emergency stop mechanism
 5. **Audit Trail** — Immutable, hash-chained logging
+6. **Storage Layout Validation** — On-chain storage slot descriptors per facet, hash-based collision detection before upgrades (UpgradeManagerFacet)
+7. **Multi-sig Upgrade Governance** — Configurable approval threshold for upgrade proposals, preventing unilateral upgrades (UpgradeManagerFacet)
+8. **Rate Limiting** — Per-selector, per-address sliding window rate limits for sensitive operations (SecurityGuardFacet)
+9. **Circuit Breaker** — Auto-pause when security incident count exceeds threshold within a time window (SecurityGuardFacet)
+10. **Threat Registry** — Known threat indicator tracking with severity levels for pattern detection (SecurityGuardFacet)
+11. **Address Blocking** — CRITICAL incidents auto-block offending addresses; manual block/unblock by security admin (SecurityGuardFacet)
 
 ### Known Limitations
 
-1. **Storage Layout** — Must maintain consistency across upgrades
+1. **Storage Layout** — Must maintain consistency across upgrades; UpgradeManagerFacet provides on-chain validation but requires manual layout registration
 2. **Function Selectors** — Manual collision prevention required
 3. **Oracle Trust** — Relies on trusted external data providers
-4. **Gas Costs** — Complex operations may exceed block limits
+4. **Gas Costs** — Complex operations may exceed block limits; SecurityGuardFacet incident queries iterate all incidents (consider pagination for high-volume systems)
 
 ---
 
@@ -278,6 +318,9 @@ diamond.executeUpgrade(upgradeId);
 - `DiamondInit.init` can only be called once; post-init role grants require an owner transaction via `LibRoles` internals or a dedicated admin facet
 - `JurisdictionFacet.blockJurisdictionOperation` currently only handles `FACTORING`; extend for other operation types as needed
 - Add fuzzing tests for risk scoring and invoice validation edge cases
+- UpgradeManagerFacet storage layout registration is manual; consider automated layout extraction from `forge inspect` output
+- SecurityGuardFacet `getSecurityIncidents` iterates all incidents linearly; add indexed pagination for production deployments with high incident volume
+- Consider integrating `SecurityGuardFacet.recordActivity()` calls into existing facet modifiers for transparent rate limiting
 
 ---
 
