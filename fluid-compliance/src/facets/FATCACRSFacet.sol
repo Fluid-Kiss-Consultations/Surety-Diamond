@@ -177,6 +177,7 @@ contract FATCACRSFacet is IFATCACRSFacet {
         LibAppStorage.AppStorage storage s = LibAppStorage.appStorage();
         if (s.reportingObligations[obligationId].obligationId == bytes32(0)) revert ObligationNotFound();
         s.reportingObligations[obligationId].isReported = true;
+        emit ReportingObligationFulfilled(obligationId, msg.sender, block.timestamp);
     }
 
     // ============================================================
