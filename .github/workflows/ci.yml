@@ -29,3 +29,25 @@ jobs:
 
       - name: Test
         run: forge test -vvv
+
+  lint:
+    name: Solhint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fluid-compliance
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Solhint
+        run: npm install -g solhint
+
+      - name: Lint
+        run: solhint 'src/**/*.sol'

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {DiamondTestHelper} from "./helpers/DiamondTestHelper.sol";
 import {LibAppStorage} from "../src/libraries/LibAppStorage.sol";
+import {IFATCACRSFacet} from "../src/interfaces/IFATCACRSFacet.sol";
 
 contract FATCACRSFacetTest is DiamondTestHelper {
 
@@ -95,6 +96,18 @@ contract FATCACRSFacetTest is DiamondTestHelper {
 
         pending = fatca().getPendingObligations(seller, 2025);
         assertEq(pending.length, 0);
+    }
+
+    function test_markAsReported_emitsEvent() public {
+        vm.prank(officer);
+        bytes32 oblId = fatca().createReportingObligation(
+            seller, keccak256("US"), 100_000 * 1e18, keccak256("FATCA"), 2025
+        );
+
+        vm.expectEmit(true, true, false, true);
+        emit IFATCACRSFacet.ReportingObligationFulfilled(oblId, officer, block.timestamp);
+        vm.prank(officer);
+        fatca().markAsReported(oblId);
     }
 
     function test_getPendingObligations_filtersByYear() public {
