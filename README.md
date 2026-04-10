@@ -201,7 +201,7 @@ This repository represents a **Systems Oracle** full-consult delivery — from s
 
 **If your protocol touches compliance, jurisdictions, or regulated finance — we should talk.**
 
-**Contact:** [fluidkiss1337@gmail.com](mailto:fluidkiss1337@gmail.com)
+**Contact:** [john.welch@fluidsoulutions.store](mailto: john.welch@fluidsolutions.store)
 
 ---
 
